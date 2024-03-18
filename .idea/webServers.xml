@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="9eb5194a-aaf5-4447-8eed-61a6ad6113e7" name="196">
+        <fileTransfer rootFolder="/home/iai" accessType="SFTP" host="175.123.137.196" port="22" sshConfigId="4af1f92a-b57d-4fb1-91e6-c30ebeaa8b00" sshConfig="iai@175.123.137.196:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
