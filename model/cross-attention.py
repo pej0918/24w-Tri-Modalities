@@ -51,16 +51,16 @@ class MultiHeadCrossAttention(nn.Module):
         tensor = tensor.transpose(1,2).contiguous().view(batch_size, length, self.d_model)
         return tensor
 
-if __name__ == '__main__':
-    d_model = 2048
-    n_head = 8
-    multi_head_cross_attention = MultiHeadCrossAttention(d_model, n_head)
+# if __name__ == '__main__':
+#     d_model = 2048
+#     n_head = 8
+#     multi_head_cross_attention = MultiHeadCrossAttention(d_model, n_head)
 
-    # video & text fature 
-    v_feature = torch.rand(1, 1, d_model)
-    t_feature = torch.rand(1, 1, d_model)
+#     # video & text fature 
+#     v_feature = torch.rand(1, 1, d_model)
+#     t_feature = torch.rand(1, 1, d_model)
 
-    cross_attention_v_t = multi_head_cross_attention(v_feature,t_feature,v_feature)
-    cross_attention_t_v = multi_head_cross_attention(t_feature,v_feature,t_feature)
+#     cross_attention_v_t = multi_head_cross_attention(v_feature,t_feature,v_feature)
+#     cross_attention_t_v = multi_head_cross_attention(t_feature,v_feature,t_feature)
 
-    output = torch.cat((cross_attention_v_t, cross_attention_t_v), dim=2)
+#     output = torch.cat((cross_attention_v_t, cross_attention_t_v), dim=2)
