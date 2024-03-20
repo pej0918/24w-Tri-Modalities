@@ -1,7 +1,7 @@
 ## 현재 수정 중 
 
 ```
-python train.py --we_path your/we/path --data_path your/data/path 
+python train.py --we_path your/we/path --data_path your/data/path --token_projection projection_net
 ```
 
 여기에서 token_projection을 
