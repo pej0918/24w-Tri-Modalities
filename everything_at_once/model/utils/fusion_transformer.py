@@ -1,14 +1,14 @@
 import collections
 
-from timm.models.vision_transformer import _init_vit_weights, trunc_normal_
+from timm.models.vision_transformer import trunc_normal_
 import torch.nn as nn
 from functools import partial
 import torch
-from eee.model.utils.layers import FusionBlock
+from everything_at_once.model.utils.layers import FusionBlock
 
 
 class FusionTransformer(nn.Module):
-    def __init__(self, embed_dim=768, depth=1, num_heads=12, mlp_ratio=4., qkv_bias=True,
+    def __init__(self, embed_dim=4096, depth=1, num_heads=64, mlp_ratio=1, qkv_bias=True,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=None,
                  act_layer=None,
                  use_cls_token=False,
@@ -45,13 +45,21 @@ class FusionTransformer(nn.Module):
 
     def forward(self, text=None, video=None, audio=None):
         # concatenate tokens
-        data = [text, video, audio]
-        tokens = [x['all_tokens'] for x in data if x is not None]
-        tokens = torch.cat(tokens, dim=1)
+        tokens = {}
+        if text is not None:
+            tokens['text'] = text
+        if video is not None:
+            tokens['video'] = video
+        if audio is not None:
+            tokens['audio'] = audio
+
+        # data = [text, video, audio]
+        # tokens = [x for x in data if x is not None]
+        # tokens = torch.cat(tokens, dim=1)
 
         # concatenate attention masks
-        tokens_mask = [x['attention_mask'] for x in data if x is not None]
-        tokens_mask = torch.cat(tokens_mask, dim=1)
+        # tokens_mask = [x['attention_mask'] for x in data if x is not None]
+        # tokens_mask = torch.cat(tokens_mask, dim=1)
 
         # concatenate cls token
         if self.cls_token is None:
@@ -59,12 +67,12 @@ class FusionTransformer(nn.Module):
         else:
             cls_token = self.cls_token.expand(tokens.shape[0], -1, -1)
             tokens = torch.cat((cls_token, tokens), dim=1)
-            cls_token_mask = torch.ones((1, 1)).to(tokens_mask.device).expand(tokens_mask.shape[0], -1)
-            tokens_mask = torch.cat((cls_token_mask, tokens_mask), dim=1)
+            # cls_token_mask = torch.ones((1, 1)).to(tokens_mask.device).expand(tokens_mask.shape[0], -1)
+            # tokens_mask = torch.cat((cls_token_mask, tokens_mask), dim=1)
             offset = 1
 
         for block in self.blocks:
-            tokens = block(tokens, attention_mask=tokens_mask)
+            tokens = block(tokens)
 
         output = collections.OrderedDict()
 
@@ -116,3 +124,39 @@ class FusionTransformer(nn.Module):
             output[modalities]['embed'] = tokens[:, 0]
 
         return output
+
+
+
+def _init_vit_weights(module: nn.Module, name: str = '', head_bias: float = 0., jax_impl: bool = False):
+    """ ViT weight initialization
+    * When called without n, head_bias, jax_impl args it will behave exactly the same
+      as my original init for compatibility with prev hparam / downstream use cases (ie DeiT).
+    * When called w/ valid n (module name) and jax_impl=True, will (hopefully) match JAX impl
+    """
+    if isinstance(module, nn.Linear):
+        if name.startswith('head'):
+            nn.init.zeros_(module.weight)
+            nn.init.constant_(module.bias, head_bias)
+        elif name.startswith('pre_logits'):
+            lecun_normal_(module.weight)
+            nn.init.zeros_(module.bias)
+        else:
+            if jax_impl:
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    if 'mlp' in name:
+                        nn.init.normal_(module.bias, std=1e-6)
+                    else:
+                        nn.init.zeros_(module.bias)
+            else:
+                trunc_normal_(module.weight, std=.02)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
+    elif jax_impl and isinstance(module, nn.Conv2d):
+        # NOTE conv was left to pytorch default in my original init
+        lecun_normal_(module.weight)
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+    elif isinstance(module, (nn.LayerNorm, nn.GroupNorm, nn.BatchNorm2d)):
+        nn.init.zeros_(module.bias)
+        nn.init.ones_(module.weight)
