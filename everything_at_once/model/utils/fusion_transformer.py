@@ -4,7 +4,7 @@ from timm.models.vision_transformer import _init_vit_weights, trunc_normal_
 import torch.nn as nn
 from functools import partial
 import torch
-from layers import FusionBlock
+from eee.model.utils.layers import FusionBlock
 
 
 class FusionTransformer(nn.Module):
