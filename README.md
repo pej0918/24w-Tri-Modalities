@@ -21,4 +21,4 @@ RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x4096 and 2048x512)
 
 어쩄든 이 차원맞추면 FusionTransformer에서 forward의 token 차원 맞춰지는 거고  
 이 차원에 맞춰서 cls_token 만들고 앞에 concat하고  
-Q, K, V 세개 섞어서 block(fusionblock) 돌리면 될 것 같당  
+Q, K, V 세개 섞어서 block(fusionblock) 돌리면 될 것 같당

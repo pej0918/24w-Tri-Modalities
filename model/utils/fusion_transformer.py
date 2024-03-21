@@ -4,7 +4,7 @@ from timm.models.vision_transformer import trunc_normal_
 import torch.nn as nn
 from functools import partial
 import torch
-from everything_at_once.model.utils.layers import FusionBlock
+from model.utils.layers import FusionBlock
 
 
 class FusionTransformer(nn.Module):

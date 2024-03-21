@@ -3,8 +3,9 @@ import collections
 # from sacred import Experiment
 # from neptunecontrib.monitoring.sacred import NeptuneObserver
 
-import torch.optim as module_optim
-import torch.optim.lr_scheduler as module_lr_scheduler
+import torch
+# import torch.optim as module_optim
+# import torch.optim.lr_scheduler as module_lr_scheduler
 
 # from everything_at_once import data_loader as module_data
 # from everything_at_once import model as module_arch
@@ -15,8 +16,8 @@ import torch.optim.lr_scheduler as module_lr_scheduler
 
 # from parse_config import ConfigParser
 
-from everything_at_once.data_loader.msrvtt_dataloader import MSRVTT_DataLoader
-from everything_at_once.model.fusion_model import EverythingAtOnceModel
+from data_loader.msrvtt_dataloader import MSRVTT_DataLoader
+from model.fusion_model import EverythingAtOnceModel
 from gensim.models.keyedvectors import KeyedVectors
 from torch.utils.data import DataLoader
 

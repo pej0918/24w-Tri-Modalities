@@ -3,11 +3,11 @@ import torch
 from timm.models.layers import trunc_normal_
 from torch import nn as nn
 
-from everything_at_once.model.utils.utils import normalize_embeddings
-from everything_at_once.model.utils.layers import get_projection
-from everything_at_once.model.utils.fusion_transformer import FusionTransformer
-from everything_at_once.model.utils.davenet import load_DAVEnet
-from everything_at_once.model.utils.projection import projection_net
+from model.utils.utils import normalize_embeddings
+from model.utils.layers import get_projection
+from model.utils.fusion_transformer import FusionTransformer
+from model.utils.davenet import load_DAVEnet
+from model.utils.projection import projection_net
 
 class EverythingAtOnceModel(nn.Module):
     def __init__(self,

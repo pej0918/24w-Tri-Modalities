@@ -3,7 +3,7 @@
 # from __future__ import unicode_literals
 # from __future__ import print_function
 
-import torch as th
+import torch
 from torch.utils.data import Dataset
 import pickle
 import torch.nn.functional as F
@@ -62,9 +62,9 @@ class MSRVTT_DataLoader(Dataset):
         words = [word for word in words if word in self.we.key_to_index]
         if words: #해당 단어가 임베딩 모델에 존재할 때 벡터 추출(학습 한 것만)
             we = self._zero_pad_tensor(self.we[words], self.max_words)
-            return th.from_numpy(we)
+            return torch.from_numpy(we)
         else:
-            return th.zeros(self.max_words, self.we_dim)
+            return torch.zeros(self.max_words, self.we_dim)
 
     def _get_caption(self, idx):
         """Chooses random caption if training. Uses set caption if evaluating."""
@@ -80,9 +80,9 @@ class MSRVTT_DataLoader(Dataset):
     def __getitem__(self, idx):
         video_id = self.data[idx]['id']  #비디오의 고유 식별자 가져오기
         # load 2d and 3d features (features are pooled over the time dimension)
-        feat_2d = F.normalize(th.from_numpy(self.data[idx]['2d_pooled']).float(), dim=0) #2D 데이터 정규화
-        feat_3d = F.normalize(th.from_numpy(self.data[idx]['3d_pooled']).float(), dim=0) #3D 데이터 정규화
-        video = th.cat((feat_2d, feat_3d)) #2D와 3D 특징을 결합하여 하나의 비디오 특징 생성합니다.
+        feat_2d = F.normalize(torch.from_numpy(self.data[idx]['2d_pooled']).float(), dim=0) #2D 데이터 정규화
+        feat_3d = F.normalize(torch.from_numpy(self.data[idx]['3d_pooled']).float(), dim=0) #3D 데이터 정규화
+        video = torch.cat((feat_2d, feat_3d)) #2D와 3D 특징을 결합하여 하나의 비디오 특징 생성합니다.
 
         # load audio and zero pad/truncate if necessary
         audio = self.data[idx]['audio']  #오디오의 특징 가져오기
@@ -93,7 +93,7 @@ class MSRVTT_DataLoader(Dataset):
             audio = np.pad(audio, ((0,0),(0,p)), 'constant', constant_values=(0,0))
         elif p < 0:
             audio = audio[:,0:p]
-        audio = th.FloatTensor(audio)
+        audio = torch.FloatTensor(audio)
 
         # choose a caption
         caption=''
