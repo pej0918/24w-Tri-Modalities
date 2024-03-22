@@ -24,6 +24,7 @@ RuntimeError: mat1 and mat2 shapes cannot be multiplied (16x4096 and 2048x512)
 Q, K, V 세개 섞어서 block(fusionblock) 돌리면 될 것 같당
 
 
+### 모델 구조
 net = EverythingAtOnce()  
 ㄴself.fusion = FusionTransformer()
 ㄴFusionBlock  
