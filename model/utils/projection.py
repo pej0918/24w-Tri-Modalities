@@ -6,7 +6,7 @@ from __future__ import print_function
 import torch.nn as nn
 import torch as th
 import torch.nn.functional as F
-from .davenet import load_DAVEnet
+
 
 # 입력과 출력의 차원수가 동일하다
 class Context_Gating(nn.Module):
@@ -60,18 +60,17 @@ class Fused_Gated_Unit(nn.Module):
 class projection_net(nn.Module):
     def __init__(
             self,
-            embd_dim=1024,
-            video_dim=2048,
+            embd_dim=4096,
+            video_dim=4096,
             we_dim=300,
             cross_attention=False
     ):
         super(projection_net, self).__init__()
-        self.DAVEnet = load_DAVEnet() 
         self.cross_attention = cross_attention
 
         # Fuse적용 X
-        if cross_attention:
-            self.GU_audio = Gated_Embedding_Unit(1024, embd_dim)
+        if not cross_attention:
+            self.GU_audio = Gated_Embedding_Unit(5120, embd_dim)
             self.GU_video = Gated_Embedding_Unit(video_dim, embd_dim)
             self.text_pooling_caption = Sentence_Maxpool(we_dim, embd_dim)
             self.GU_text_captions = Gated_Embedding_Unit(embd_dim, embd_dim)
@@ -84,7 +83,6 @@ class projection_net(nn.Module):
             self.GU_fuse= Fused_Gated_Unit(embd_dim // 2, embd_dim)
 
     def forward(self, video, audio_input, nframes, text=None):
-        audio = self.DAVEnet(audio_input)
         if not self.training: # controlled by net.train() / net.eval() (use for downstream tasks) 
             pooling_ratio = round(audio_input.size(-1) / audio.size(-1))    # 입력 오디오 길이와 오디오 임베딩 길이 계산
             nframes.div_(pooling_ratio)                                     # 오디오 프레임 수를 풀링 비율로 나눈다.
@@ -96,9 +94,11 @@ class projection_net(nn.Module):
                 pooled_audio_outputs_list.append(audioPoolfunc(audio_outputs[idx][:, :, 0:nF]).unsqueeze(0))
             audio = th.cat(pooled_audio_outputs_list).squeeze(3).squeeze(2)
         else:
-            audio = audio.mean(dim=2) # this averages features from 0 padding too
+            audio = audio_input
+            audio = audio.mean(dim=1) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
+            print('audio shape:', audio.shape)
 
-        if not self.cross_attention:
+        if self.cross_attention:
             # 차원수 조절
             video = self.video_projection(video)
             audio = self.DAVEnet_projection(audio)
@@ -110,7 +110,8 @@ class projection_net(nn.Module):
             return audio_text, audio_video, text_video
         else:
             # 차원수 조절 + GU
-            text = self.GU_text_captions(self.text_pooling_caption(text))
-            audio = self.GU_audio(audio)
-            video = self.GU_video(video)
+            text = self.GU_text_captions(self.text_pooling_caption(text)) # [16,30,300] -> [16,4096]
+            print(audio.shape)
+            audio = self.GU_audio(audio) # [16,5120] -> [16,4096]
+            video = self.GU_video(video) # [16,4096] -> [16,4096]
             return audio, text, video
