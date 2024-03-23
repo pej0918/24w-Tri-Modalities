@@ -158,12 +158,12 @@ class EverythingAtOnceModel(nn.Module):
             video_raw_embed = self.extract_video_tokens(video) # [16, 4096]
             audio_raw_embed = self.extract_audio_tokens(audio, nframes) # [16, 80, 4096]
 
-        tv = self.fusion(text=text_raw_embed,
-                            video=video_raw_embed)
-        ta = self.fusion(text=text_raw_embed,
-                            audio=audio_raw_embed)
-        va = self.fusion(video=video_raw_embed,
-                            audio=audio_raw_embed)
+        va = self.fusion(key=video_raw_embed,
+                            query=audio_raw_embed)
+        at = self.fusion(key=audio_raw_embed,
+                            query=text_raw_embed)
+        tv = self.fusion(key=text_raw_embed,
+                            query=video_raw_embed)
         
 
         # output['text_nonempty_input_mask'] = text_raw_embed['nonempty_input_mask']

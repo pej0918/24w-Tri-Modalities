@@ -11,7 +11,7 @@ class FusionTransformer(nn.Module):
     def __init__(self, embed_dim=4096, depth=1, num_heads=64, mlp_ratio=1, qkv_bias=True,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=None,
                  act_layer=None,
-                 use_cls_token=False,
+                 use_cls_token=True,
                  ):
         super().__init__()
 
@@ -43,17 +43,19 @@ class FusionTransformer(nn.Module):
             trunc_normal_(self.cls_token, std=.02)
         self.apply(_init_vit_weights)
 
-    def forward(self, text=None, video=None, audio=None):
+    def forward(self, key, query, key_modal='', query_modal=''):
+    # def forward(self, key, query):
         # concatenate tokens
-        tokens = {}
-        if text is not None:
-            tokens['text'] = text
-        if video is not None:
-            tokens['video'] = video
-        if audio is not None:
-            tokens['audio'] = audio
+        # tokens = {}
+        # if text is not None:
+        #     tokens['text'] = text
+        # if video is not None:
+        #     tokens['video'] = video
+        # if audio is not None:
+        #     tokens['audio'] = audio
+        token_k = key
+        token_q = query
 
-        # data = [text, video, audio]
         # tokens = [x for x in data if x is not None]
         # tokens = torch.cat(tokens, dim=1)
 
@@ -61,18 +63,25 @@ class FusionTransformer(nn.Module):
         # tokens_mask = [x['attention_mask'] for x in data if x is not None]
         # tokens_mask = torch.cat(tokens_mask, dim=1)
 
+        print('original token_k:', token_k.shape)
         # concatenate cls token
         if self.cls_token is None:
             offset = 0
         else:
-            cls_token = self.cls_token.expand(tokens.shape[0], -1, -1)
-            tokens = torch.cat((cls_token, tokens), dim=1)
+            cls_token = self.cls_token.expand(token_k.shape[0], -1, -1)
+            token_k = torch.cat((cls_token, token_k), dim=1)
+
+            cls_token = self.cls_token.expand(token_q.shape[0], -1, -1)
+            token_q = torch.cat((cls_token, token_q), dim=1)
+            
             # cls_token_mask = torch.ones((1, 1)).to(tokens_mask.device).expand(tokens_mask.shape[0], -1)
             # tokens_mask = torch.cat((cls_token_mask, tokens_mask), dim=1)
             offset = 1
+        
+        print('cls + token_k:', token_k.shape)
 
         for block in self.blocks:
-            tokens = block(tokens)
+            tokens = block(token_k, token_q)
 
         output = collections.OrderedDict()
 
