@@ -48,21 +48,27 @@ def TrainOneBatch(model, opt, data, loss_fun, apex=False):
     opt.zero_grad()
     
     # AVLnet-Text independent audio and text branches
-    audio, video, text = model(video, audio, nframes, text, category)
-
-
-    ##### 수정해야함
-    # Cross Attention 적용
-    sim_audio_video = torch.matmul(audio, video.t())
-    sim_audio_text = torch.matmul(audio, text.t())
-    sim_text_video = torch.matmul(text, video.t())
-    #loss = loss_fun(sim_audio_video) + loss_fun(sim_audio_text) + loss_fun(sim_text_video)
-    output = model(image) #3개
-    loss(output,category) #3개
-    loss = a + b + c
+    va, at, tv = model(video, audio, nframes, text, category)
+    loss_va = loss_fun(va, category)
+    loss_at = loss_fun(at, category)
+    loss_tv = loss_fun(tv, category)
+    loss = loss_va + loss_at + loss_tv
     loss.backward()
     opt.step()
     return loss.item()
+
+    # ##### 수정해야함
+    # # Cross Attention 적용
+    # sim_audio_video = torch.matmul(audio, video.t())
+    # sim_audio_text = torch.matmul(audio, text.t())
+    # sim_text_video = torch.matmul(text, video.t())
+    # #loss = loss_fun(sim_audio_video) + loss_fun(sim_audio_text) + loss_fun(sim_text_video)
+    # va, at, tv = model(image) #3개
+    # loss(output,category) #3개
+    # loss = a + b + c
+    # loss.backward()
+    # opt.step()
+    # return loss.item()
 
 
 if __name__ == '__main__':
@@ -94,32 +100,31 @@ if __name__ == '__main__':
         for i_batch, sample_batch in enumerate(data_loader):
             batch_loss = TrainOneBatch(net, optimizer, sample_batch, loss)
             running_loss += batch_loss
-            exit()
-
+            print(running_loss)
 
 
 
             ################ 뒷부분 수정해야함 loss 추가
             
-            if (i_batch + 1) % args.n_display == 0 and args.verbose:
-                print('Epoch %d, Epoch status: %.4f, Training loss: %.4f' %
-                (epoch + 1, args.batch_size * float(i_batch) / dataset_size,
-                running_loss / args.n_display))
-                print('Batch load time avg: %.4f, Batch process time avg: %.4f' %
-                (data_time.avg, batch_time.avg))
-                running_loss = 0.0
-                # reset the load meters
-                batch_time = AverageMeter()
-                data_time = AverageMeter()
-        save_epoch = epoch + 1 if args.pretrain_path == '' or 'e' not in args.pretrain_path[-7:-5] \
-                    else int(args.pretrain_path.split('/')[-1].strip('e.pth')) + epoch + 1
-        for param_group in optimizer.param_groups:
-            param_group['lr'] *= args.lr_decay
-        if args.checkpoint_dir != '':
-            path = os.path.join(args.checkpoint_dir, 'e{}.pth'.format(save_epoch))
-            net.module.save_checkpoint(path)
-            if args.apex_level == 1:
-                amp_checkpoint = {'net': net.module.state_dict(),
-                                'optimizer': optimizer.state_dict(),
-                                'amp': amp.state_dict()}
-                torch.save(amp_checkpoint, os.path.join(args.checkpoint_dir, 'amp_checkpoint.pt'))
+        #     if (i_batch + 1) % args.n_display == 0 and args.verbose:
+        #         print('Epoch %d, Epoch status: %.4f, Training loss: %.4f' %
+        #         (epoch + 1, args.batch_size * float(i_batch) / dataset_size,
+        #         running_loss / args.n_display))
+        #         print('Batch load time avg: %.4f, Batch process time avg: %.4f' %
+        #         (data_time.avg, batch_time.avg))
+        #         running_loss = 0.0
+        #         # reset the load meters
+        #         batch_time = AverageMeter()
+        #         data_time = AverageMeter()
+        # save_epoch = epoch + 1 if args.pretrain_path == '' or 'e' not in args.pretrain_path[-7:-5] \
+        #             else int(args.pretrain_path.split('/')[-1].strip('e.pth')) + epoch + 1
+        # for param_group in optimizer.param_groups:
+        #     param_group['lr'] *= args.lr_decay
+        # if args.checkpoint_dir != '':
+        #     path = os.path.join(args.checkpoint_dir, 'e{}.pth'.format(save_epoch))
+        #     net.module.save_checkpoint(path)
+        #     if args.apex_level == 1:
+        #         amp_checkpoint = {'net': net.module.state_dict(),
+        #                         'optimizer': optimizer.state_dict(),
+        #                         'amp': amp.state_dict()}
+        #         torch.save(amp_checkpoint, os.path.join(args.checkpoint_dir, 'amp_checkpoint.pt'))

@@ -75,7 +75,7 @@ class FusionBlock(nn.Module):
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
     def forward(self, k, q, attention_mask=None):
-        output = q + self.drop_path(self.cross_attn(self.norm1(k), self.norm1(q), attention_mask))  ##### 1) query만 residual
+        output = q + self.drop_path(self.cross_attn(self.norm1(k), self.norm1(q)))#, attention_mask))  ##### 1) query만 residual
         output = output + self.drop_path(self.mlp(self.norm2(output)))
         return output
 
