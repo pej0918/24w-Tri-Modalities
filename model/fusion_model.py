@@ -164,17 +164,17 @@ class EverythingAtOnceModel(nn.Module):
                             query=text_raw_embed)
         tv = self.fusion(key=text_raw_embed,
                             query=video_raw_embed)
-        
+        print('va:',va.shape,'at:',at.shape,'tv:',tv.shape)
 
         # output['text_nonempty_input_mask'] = text_raw_embed['nonempty_input_mask']
         # output['video_nonempty_input_mask'] = video_raw_embed['nonempty_input_mask']
         # output['audio_nonempty_input_mask'] = audio_raw_embed['nonempty_input_mask']
 
-        # add positional embedding after masking
-        if self.use_positional_emb:
-            text_raw_embed['all_tokens'] = text_raw_embed['all_tokens'] + self.text_pos_embed
-            video_raw_embed['all_tokens'] = video_raw_embed['all_tokens'] + self.video_pos_embed
-            audio_raw_embed['all_tokens'] = audio_raw_embed['all_tokens'] + self.audio_pos_embed
+        # # add positional embedding after masking
+        # if self.use_positional_emb:
+        #     text_raw_embed['all_tokens'] = text_raw_embed['all_tokens'] + self.text_pos_embed
+        #     video_raw_embed['all_tokens'] = video_raw_embed['all_tokens'] + self.video_pos_embed
+        #     audio_raw_embed['all_tokens'] = audio_raw_embed['all_tokens'] + self.audio_pos_embed
         
 
 
@@ -186,50 +186,50 @@ class EverythingAtOnceModel(nn.Module):
 
 
 
-        text = self.fusion(text=text_raw_embed)['text']
-        video = self.fusion(video=video_raw_embed)['video']
-        audio = self.fusion(audio=audio_raw_embed)['audio']
+        # text = self.fusion(text=text_raw_embed)['text']
+        # video = self.fusion(video=video_raw_embed)['video']
+        # audio = self.fusion(audio=audio_raw_embed)['audio']
 
-        if self.individual_projections:
-            text_proj, video_proj, audio_proj = self.text_proj, self.video_proj, self.audio_proj
-        else:
-            text_proj, video_proj, audio_proj = self.proj, self.proj, self.proj
+        # if self.individual_projections:
+        #     text_proj, video_proj, audio_proj = self.text_proj, self.video_proj, self.audio_proj
+        # else:
+        #     text_proj, video_proj, audio_proj = self.proj, self.proj, self.proj
 
-        output["text_embed"] = text_proj(text['embed'])
-        output["video_embed"] = video_proj(video['embed'])
-        output["audio_embed"] = audio_proj(audio['embed'])
+        # output["text_embed"] = text_proj(text['embed'])
+        # output["video_embed"] = video_proj(video['embed'])
+        # output["audio_embed"] = audio_proj(audio['embed'])
 
-        if self.cross_modal or force_cross_modal:
-            tv = self.fusion(text=text_raw_embed,
-                             video=video_raw_embed)
-            ta = self.fusion(text=text_raw_embed,
-                             audio=audio_raw_embed)
-            va = self.fusion(video=video_raw_embed,
-                             audio=audio_raw_embed)
+        # if self.cross_modal or force_cross_modal:
+        #     tv = self.fusion(text=text_raw_embed,
+        #                      video=video_raw_embed)
+        #     ta = self.fusion(text=text_raw_embed,
+        #                      audio=audio_raw_embed)
+        #     va = self.fusion(video=video_raw_embed,
+        #                      audio=audio_raw_embed)
 
-            if self.fusion.cls_token is not None:
-                assert not self.individual_projections
-                output["tv_embed"] = self.proj(tv['text_video']['embed'])
-                output["ta_embed"] = self.proj(ta['text_audio']['embed'])
-                output["va_embed"] = self.proj(va['video_audio']['embed'])
-            else:
-                output["tv_embed"] = (normalize_embeddings(text_proj(tv['text']['embed'])) +
-                                      normalize_embeddings(video_proj(tv['video']['embed']))) / 2
+        #     if self.fusion.cls_token is not None:
+        #         assert not self.individual_projections
+        #         output["tv_embed"] = self.proj(tv['text_video']['embed'])
+        #         output["ta_embed"] = self.proj(ta['text_audio']['embed'])
+        #         output["va_embed"] = self.proj(va['video_audio']['embed'])
+        #     else:
+        #         output["tv_embed"] = (normalize_embeddings(text_proj(tv['text']['embed'])) +
+        #                               normalize_embeddings(video_proj(tv['video']['embed']))) / 2
 
-                output["ta_embed"] = (normalize_embeddings(text_proj(ta['text']['embed'])) +
-                                      normalize_embeddings(audio_proj(ta['audio']['embed']))) / 2
+        #         output["ta_embed"] = (normalize_embeddings(text_proj(ta['text']['embed'])) +
+        #                               normalize_embeddings(audio_proj(ta['audio']['embed']))) / 2
 
-                output["va_embed"] = (normalize_embeddings(video_proj(va['video']['embed'])) +
-                                      normalize_embeddings(audio_proj(va['audio']['embed']))) / 2
+        #         output["va_embed"] = (normalize_embeddings(video_proj(va['video']['embed'])) +
+        #                               normalize_embeddings(audio_proj(va['audio']['embed']))) / 2
 
-        if force_cross_modal:
-            #  needed for ablation
-            output["t+v_embed"] = (normalize_embeddings(output["text_embed"]) +
-                                   normalize_embeddings(output["video_embed"])) / 2
-            output["t+a_embed"] = (normalize_embeddings(output["text_embed"]) +
-                                   normalize_embeddings(output["audio_embed"])) / 2
-            output["v+a_embed"] = (normalize_embeddings(output["video_embed"]) +
-                                   normalize_embeddings(output["audio_embed"])) / 2
+        # if force_cross_modal:
+        #     #  needed for ablation
+        #     output["t+v_embed"] = (normalize_embeddings(output["text_embed"]) +
+        #                            normalize_embeddings(output["video_embed"])) / 2
+        #     output["t+a_embed"] = (normalize_embeddings(output["text_embed"]) +
+        #                            normalize_embeddings(output["audio_embed"])) / 2
+        #     output["v+a_embed"] = (normalize_embeddings(output["video_embed"]) +
+        #                            normalize_embeddings(output["audio_embed"])) / 2
 
-        return output
+        return va, at, tv
 
