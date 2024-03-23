@@ -89,9 +89,9 @@ if __name__ == '__main__':
     parser.add_argument('--we_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/GoogleNews-vectors-negative300.bin', type=str)
     parser.add_argument('--data_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/msrvtt_category_train.pkl', type=str)
     parser.add_argument('--val_data_path', default='C:/Users/heeryung/code/24w_deep_daiv/msrvtt_category_test.pkl', type=str)
-    parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt/trial2_audio_flatten', type=str)
-    parser.add_argument('--token_projection', default='projection_net', type=str) # 한결이가 만든 projection_net 쓸건지
-    parser.add_argument('--batch_size', default=16, type=int) # 한결이가 만든 projection_net 쓸건지
+    parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt/trial3_audio_davenet', type=str)
+    parser.add_argument('--token_projection', default='projection_net', type=str) 
+    parser.add_argument('--batch_size', default=16, type=int) 
     args = parser.parse_args()
 
     # setup data_loader instances
@@ -123,8 +123,7 @@ if __name__ == '__main__':
     total_text_correct = 0
     total_hard_vote_correct = 0
     total_soft_vote_correct = 0
-
-   
+    total_num = 0
 
     for epoch in range(0,1001):
         net.train()
@@ -177,13 +176,15 @@ if __name__ == '__main__':
                     total_video_correct += video_correct
                     total_audio_correct += audio_correct
                     total_text_correct += text_correct
+
+                    total_num += category.size(0)
                 
                 # Calculate final accuracies
-                video_accuracy = total_video_correct / (len(val_data_loader) * batch_size)
-                audio_accuracy = total_audio_correct / (len(val_data_loader) * batch_size)
-                text_accuracy = total_text_correct / (len(val_data_loader) * batch_size)
-                hard_vote_accuracy = total_hard_vote_correct / (len(val_data_loader) * batch_size)
-                soft_vote_accuracy = total_soft_vote_correct / (len(val_data_loader) * batch_size)
+                video_accuracy = total_video_correct / total_num
+                audio_accuracy = total_audio_correct / total_num
+                text_accuracy = total_text_correct / total_num
+                hard_vote_accuracy = total_hard_vote_correct / total_num
+                soft_vote_accuracy = total_soft_vote_correct / total_num
 
                 print("Video accuracy:", video_accuracy)
                 print("Audio accuracy:", audio_accuracy)

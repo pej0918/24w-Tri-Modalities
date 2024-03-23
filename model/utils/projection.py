@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch as th
 import torch.nn.functional as F
 
+from model.utils.davenet import load_DAVEnet
+
 
 # 입력과 출력의 차원수가 동일하다
 class Context_Gating(nn.Module):
@@ -70,7 +72,8 @@ class projection_net(nn.Module):
 
         # Fuse적용 X
         if not cross_attention:
-            self.GU_audio = Gated_Embedding_Unit(40*5120, embd_dim)
+            self.DAVEnet = load_DAVEnet()
+            self.GU_audio = Gated_Embedding_Unit(embd_dim, embd_dim)
             self.GU_video = Gated_Embedding_Unit(video_dim, embd_dim)
             self.text_pooling_caption = Sentence_Maxpool(we_dim, embd_dim)
             self.GU_text_captions = Gated_Embedding_Unit(embd_dim, embd_dim)
@@ -94,8 +97,9 @@ class projection_net(nn.Module):
         #         pooled_audio_outputs_list.append(audioPoolfunc(audio_outputs[idx][:, :, 0:nF]).unsqueeze(0))
         #     audio = th.cat(pooled_audio_outputs_list).squeeze(3).squeeze(2)
         # else:
-        audio = audio_input.view(audio_input.shape[0], -1)
-        # audio = audio_input.mean(dim=1) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
+        audio = self.DAVEnet(audio_input) # [16, 1024, 320]
+        # audio = audio_input.view(audio_input.shape[0], -1)
+        audio = audio.mean(dim=2) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
         # print('audio shape:', audio.shape)
 
         if self.cross_attention:
