@@ -8,7 +8,7 @@ from model.utils.layers import FusionBlock
 
 
 class FusionTransformer(nn.Module):
-    def __init__(self, embed_dim=4096, depth=1, num_heads=64, mlp_ratio=1, qkv_bias=True,
+    def __init__(self, embed_dim=1024, depth=1, num_heads=64, mlp_ratio=1, qkv_bias=True,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=None,
                  act_layer=None,
                  use_cls_token=True,
