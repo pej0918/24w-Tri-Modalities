@@ -57,8 +57,8 @@ class FusionTransformer(nn.Module):
         # if audio is not None:
         #     tokens['audio'] = audio
 
-        token_k = key.view(16,1,4096)
-        token_q = query.view(16,1,4096)
+        token_k = key.view(key.shape[0],1,self.embed_dim)
+        token_q = query.view(query.shape[0],1,self.embed_dim)
 
         # tokens = [x for x in data if x is not None]
         # tokens = torch.cat(tokens, dim=1)

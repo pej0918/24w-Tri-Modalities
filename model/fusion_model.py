@@ -164,7 +164,7 @@ class EverythingAtOnceModel(nn.Module):
                             query=text_raw_embed)
         tv = self.fusion(key=text_raw_embed,
                             query=video_raw_embed)
-        print('va:',va.shape,'at:',at.shape,'tv:',tv.shape)
+        # print('va:',va.shape,'at:',at.shape,'tv:',tv.shape)
 
         # output['text_nonempty_input_mask'] = text_raw_embed['nonempty_input_mask']
         # output['video_nonempty_input_mask'] = video_raw_embed['nonempty_input_mask']

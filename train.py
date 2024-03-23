@@ -37,13 +37,13 @@ def TrainOneBatch(model, opt, data, loss_fun, apex=False):
     text = data['text'].cuda()
     nframes = data['nframes'].cuda()
     category = data['category'].cuda()
-    print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
+    # print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
 
     video = video.view(-1, video.shape[-1])
     audio = audio.view(-1, audio.shape[-2], audio.shape[-1])
     text = text.view(-1, text.shape[-2], text.shape[-1])
     nframes = nframes.view(-1)
-    print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
+    # print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
 
     opt.zero_grad()
     
@@ -100,7 +100,7 @@ if __name__ == '__main__':
         for i_batch, sample_batch in enumerate(data_loader):
             batch_loss = TrainOneBatch(net, optimizer, sample_batch, loss)
             running_loss += batch_loss
-            print(running_loss)
+        print(running_loss / len(data_loader))
 
 
 

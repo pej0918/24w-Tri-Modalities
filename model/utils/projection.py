@@ -96,7 +96,7 @@ class projection_net(nn.Module):
         else:
             audio = audio_input
             audio = audio.mean(dim=1) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
-            print('audio shape:', audio.shape)
+            # print('audio shape:', audio.shape)
 
         if self.cross_attention:
             # 차원수 조절
@@ -111,7 +111,6 @@ class projection_net(nn.Module):
         else:
             # 차원수 조절 + GU
             text = self.GU_text_captions(self.text_pooling_caption(text)) # [16,30,300] -> [16,4096]
-            print(audio.shape)
             audio = self.GU_audio(audio) # [16,5120] -> [16,4096]
             video = self.GU_video(video) # [16,4096] -> [16,4096]
             return audio, text, video
