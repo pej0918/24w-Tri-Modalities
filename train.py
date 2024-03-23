@@ -3,7 +3,7 @@ import collections
 # from sacred import Experiment
 # from neptunecontrib.monitoring.sacred import NeptuneObserver
 
-import torch
+import os
 # import torch.optim as module_optim
 # import torch.optim.lr_scheduler as module_lr_scheduler
 
@@ -75,12 +75,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--we_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/GoogleNews-vectors-negative300.bin', type=str)
     parser.add_argument('--data_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/msrvtt_category_train.pkl', type=str)
+    parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv\chpt', type=str)
     parser.add_argument('--token_projection', default='projection_net', type=str) # 한결이가 만든 projection_net 쓸건지
     args = parser.parse_args()
 
     # setup data_loader instances
     we=None
     we=KeyedVectors.load_word2vec_format(args.we_path, binary=True)
+
+    save_path = args.save_path
 
     dataset = MSRVTT_DataLoader(
             data_path=args.data_path,
@@ -101,6 +104,14 @@ if __name__ == '__main__':
             batch_loss = TrainOneBatch(net, optimizer, sample_batch, loss)
             running_loss += batch_loss
         print(running_loss / len(data_loader))
+
+        if epoch % 10 == 0:
+            checkpoint = {'epoch': epoch,
+                        'model_state_dict': net.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        # 'scheduler_state_dict': scheduler.state_dict()
+                        }
+            torch.save(checkpoint, os.path.join(save_path, 'epoch{}.path'.format(epoch)))
 
 
 
