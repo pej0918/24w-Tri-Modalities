@@ -4,6 +4,8 @@ from torch import nn as nn
 from torch.nn import functional as F
 from timm.models.vision_transformer import DropPath, Mlp, Attention
 
+import math
+
 
 class GatedEmbeddingUnit(nn.Module):
     def __init__(self, input_dimension, output_dimension):
@@ -72,10 +74,10 @@ class FusionBlock(nn.Module):
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
 
-    def forward(self, x, y, attention_mask=None):
-        x = x + self.drop_path(self.cross_attn(self.norm1(x), self.norm1(y), attention_mask))  ##### 고쳐야함 residual 뺄말
-        x = x + self.drop_path(self.mlp(self.norm2(x)))
-        return x
+    def forward(self, k, q, attention_mask=None):
+        output = q + self.drop_path(self.cross_attn(self.norm1(k), self.norm1(q), attention_mask))  ##### 1) query만 residual
+        output = output + self.drop_path(self.mlp(self.norm2(output)))
+        return output
 
 class ScaleDotProductAttention(nn.Module):
     def __init__(self):
@@ -105,7 +107,8 @@ class MultiHeadCrossAttention(nn.Module):
         self.w_v = nn.Linear(d_model, d_model)
         self.w_concat = nn.Linear(d_model, d_model)
     
-    def forward(self, k, q, v):
+    def forward(self, k, q):
+        v = k
         q, k, v = self.w_q(q), self.w_k(k), self.w_v(v)
         q, k, v = self.split(q), self.split(k), self.split(v)
         out, attention = self.attention(q, k, v)
