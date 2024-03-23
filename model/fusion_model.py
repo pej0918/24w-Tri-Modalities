@@ -35,7 +35,7 @@ class EverythingAtOnceModel(nn.Module):
         self.use_positional_emb = use_positional_emb
         self.strategy_audio_pooling = strategy_audio_pooling
 
-        embed_dim = 4096
+        embed_dim = 1024
 
         self.video_norm_layer = nn.LayerNorm(embed_dim, eps=1e-6)
         self.text_norm_layer = nn.LayerNorm(embed_dim, eps=1e-6)
@@ -164,7 +164,7 @@ class EverythingAtOnceModel(nn.Module):
                             query=text_raw_embed)
         tv = self.fusion(key=text_raw_embed,
                             query=video_raw_embed)
-        print('va:',va.shape,'at:',at.shape,'tv:',tv.shape)
+        # print('va:',va.shape,'at:',at.shape,'tv:',tv.shape)
 
         # output['text_nonempty_input_mask'] = text_raw_embed['nonempty_input_mask']
         # output['video_nonempty_input_mask'] = video_raw_embed['nonempty_input_mask']

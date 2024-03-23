@@ -60,7 +60,7 @@ class Fused_Gated_Unit(nn.Module):
 class projection_net(nn.Module):
     def __init__(
             self,
-            embd_dim=4096,
+            embd_dim=1024,
             video_dim=4096,
             we_dim=300,
             cross_attention=False
@@ -70,7 +70,7 @@ class projection_net(nn.Module):
 
         # Fuse적용 X
         if not cross_attention:
-            self.GU_audio = Gated_Embedding_Unit(5120, embd_dim)
+            self.GU_audio = Gated_Embedding_Unit(40*5120, embd_dim)
             self.GU_video = Gated_Embedding_Unit(video_dim, embd_dim)
             self.text_pooling_caption = Sentence_Maxpool(we_dim, embd_dim)
             self.GU_text_captions = Gated_Embedding_Unit(embd_dim, embd_dim)
@@ -83,20 +83,20 @@ class projection_net(nn.Module):
             self.GU_fuse= Fused_Gated_Unit(embd_dim // 2, embd_dim)
 
     def forward(self, video, audio_input, nframes, text=None):
-        if not self.training: # controlled by net.train() / net.eval() (use for downstream tasks) 
-            pooling_ratio = round(audio_input.size(-1) / audio.size(-1))    # 입력 오디오 길이와 오디오 임베딩 길이 계산
-            nframes.div_(pooling_ratio)                                     # 오디오 프레임 수를 풀링 비율로 나눈다.
-            audioPoolfunc = th.nn.AdaptiveAvgPool2d((1, 1))                 # 입력 길이 맞추기
-            audio_outputs = audio.unsqueeze(2)                              # 풀링을 위해 차원 추가
-            pooled_audio_outputs_list = []
-            for idx in range(audio.shape[0]):
-                nF = max(1, nframes[idx])
-                pooled_audio_outputs_list.append(audioPoolfunc(audio_outputs[idx][:, :, 0:nF]).unsqueeze(0))
-            audio = th.cat(pooled_audio_outputs_list).squeeze(3).squeeze(2)
-        else:
-            audio = audio_input
-            audio = audio.mean(dim=1) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
-            print('audio shape:', audio.shape)
+        # if not self.training: # controlled by net.train() / net.eval() (use for downstream tasks) 
+        #     pooling_ratio = round(audio_input.size(-1) / audio.size(-1))    # 입력 오디오 길이와 오디오 임베딩 길이 계산
+        #     nframes.div_(pooling_ratio)                                     # 오디오 프레임 수를 풀링 비율로 나눈다.
+        #     audioPoolfunc = th.nn.AdaptiveAvgPool2d((1, 1))                 # 입력 길이 맞추기
+        #     audio_outputs = audio.unsqueeze(2)                              # 풀링을 위해 차원 추가
+        #     pooled_audio_outputs_list = []
+        #     for idx in range(audio.shape[0]):
+        #         nF = max(1, nframes[idx])
+        #         pooled_audio_outputs_list.append(audioPoolfunc(audio_outputs[idx][:, :, 0:nF]).unsqueeze(0))
+        #     audio = th.cat(pooled_audio_outputs_list).squeeze(3).squeeze(2)
+        # else:
+        audio = audio_input.view(audio_input.shape[0], -1)
+        # audio = audio_input.mean(dim=1) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
+        # print('audio shape:', audio.shape)
 
         if self.cross_attention:
             # 차원수 조절
@@ -111,7 +111,6 @@ class projection_net(nn.Module):
         else:
             # 차원수 조절 + GU
             text = self.GU_text_captions(self.text_pooling_caption(text)) # [16,30,300] -> [16,4096]
-            print(audio.shape)
             audio = self.GU_audio(audio) # [16,5120] -> [16,4096]
-            video = self.GU_video(video) # [16,4096] -> [16,4096]
+            video = self.GU_video(video) # [16,40*4096] -> [16,4096]
             return audio, text, video
