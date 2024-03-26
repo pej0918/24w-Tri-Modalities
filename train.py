@@ -125,8 +125,9 @@ if __name__ == '__main__':
     total_soft_vote_correct = 0
     total_num = 0
 
+    net.train()
+
     for epoch in range(0,1001):
-        net.train()
         running_loss = 0.0
         print('Epoch: %d' % epoch)
         for i_batch, sample_batch in enumerate(data_loader):
@@ -137,8 +138,7 @@ if __name__ == '__main__':
         if epoch % 10 == 0:
             checkpoint = {'epoch': epoch,
                         'model_state_dict': net.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        # 'scheduler_state_dict': scheduler.state_dict()
+                        'optimizer_state_dict': optimizer.state_dict()
                         }
             torch.save(checkpoint, os.path.join(save_path, 'epoch{}.pth'.format(epoch)))
 
@@ -192,14 +192,14 @@ if __name__ == '__main__':
                 print("Hard voting accuracy:", hard_vote_accuracy)
                 print("Soft voting accuracy:", soft_vote_accuracy)
 
-            fig, ax1 = plt.subplots()
-            ax1.plot(epoch, hard_vote_accuracy, color = 'red', alpha = 0.5)
-            ax2 = ax1.twinx()
-            ax2.plot(epoch, soft_vote_accuracy, color = 'blue', alpha = 0.5)
-            ax3 = ax1.twinx()
-            ax3.plot(epoch, audio_accuracy, color='yellow', alpha = 0.5)
+                # fig, ax1 = plt.subplots()
+                # ax1.plot(epoch, hard_vote_accuracy, color = 'red', alpha = 0.5)
+                # ax2 = ax1.twinx()
+                # ax2.plot(epoch, soft_vote_accuracy, color = 'blue', alpha = 0.5)
+                # ax3 = ax1.twinx()
+                # ax3.plot(epoch, audio_accuracy, color='yellow', alpha = 0.5)
 
-            plt.title("Hard voting/soft voting/audio accuracy")
-            plt.show()
-            plt.savefig(save_path + '/' + f'eval_graph.png')
-            plt.close(fig)
+                # plt.title("Hard voting/soft voting/audio accuracy")
+                # plt.show()
+                # plt.savefig(save_path + '/' + f'eval_graph.png')
+                # plt.close(fig)
