@@ -156,7 +156,6 @@ class MultiHeadCrossAttention(nn.Module):
 #         return x
 
 
-
 def get_projection(input_dim, output_dim, projection_type):
     if projection_type == 'minimal':
         return nn.Linear(input_dim, output_dim)
