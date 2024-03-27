@@ -156,17 +156,25 @@ class EverythingAtOnceModel(nn.Module):
 
         if self.token_projection == 'projection_net':
             audio_raw_embed, text_raw_embed, video_raw_embed = self.extract_tokens(video, audio, text, nframes)
+            video_raw_embed = torch.unsqueeze(video_raw_embed, 1) # ([16, 1, 1024] [16, 1024, 1024] [16, 30, 1024]
         else:
             text_raw_embed = self.extract_text_tokens(text) # [16, 30, 4096]
             video_raw_embed = self.extract_video_tokens(video) # [16, 4096]
             audio_raw_embed = self.extract_audio_tokens(audio, nframes) # [16, 80, 4096]
 
-        va = self.fusion(key=video_raw_embed,
-                            query=audio_raw_embed)
-        at = self.fusion(key=audio_raw_embed,
-                            query=text_raw_embed)
-        tv = self.fusion(key=text_raw_embed,
-                            query=video_raw_embed)
+        va = self.fusion(key=video_raw_embed, query=audio_raw_embed)
+        vt = self.fusion(key=video_raw_embed, query=text_raw_embed)
+        v = torch.concat((va, vt), dim=1)
+
+        at = self.fusion(key=audio_raw_embed, query=text_raw_embed)
+        av = self.fusion(key=audio_raw_embed, query=video_raw_embed)
+        a = torch.concat((at, av), dim=1)
+
+        ta = self.fusion(key=text_raw_embed, query=audio_raw_embed)
+        tv = self.fusion(key=text_raw_embed, query=video_raw_embed)
+        t = torch.concat((ta, tv), dim=1)
+        
+        return v, a, t
         # print('va:',va.shape,'at:',at.shape,'tv:',tv.shape)
 
         # output['text_nonempty_input_mask'] = text_raw_embed['nonempty_input_mask']
@@ -224,5 +232,5 @@ class EverythingAtOnceModel(nn.Module):
         #     output["v+a_embed"] = (normalize_embeddings(output["video_embed"]) +
         #                            normalize_embeddings(output["audio_embed"])) / 2
 
-        return va, at, tv
+        
 

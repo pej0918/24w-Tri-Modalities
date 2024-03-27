@@ -25,8 +25,7 @@ class MSRVTT_DataLoader(Dataset):
             we_dim=300,
             max_words=30,
             num_frames_multiplier=5, #오디에 데이터 길이 조절용
-            training=True,
-            tri_modal=False, #비디오 + 오디오 (+ 텍스트) -> 텍스트를 사용할지 유무
+            training=True
     ):
         """
         Args:
@@ -38,7 +37,6 @@ class MSRVTT_DataLoader(Dataset):
         self.max_video = 30
         self.num_frames_multiplier = num_frames_multiplier
         self.training = training
-        self.tri_modal = tri_modal
 
     def __len__(self):
         return len(self.data)
@@ -82,6 +80,8 @@ class MSRVTT_DataLoader(Dataset):
         # load 2d and 3d features (features are pooled over the time dimension)
         feat_2d = F.normalize(torch.from_numpy(self.data[idx]['2d_pooled']).float(), dim=0) #2D 데이터 정규화
         feat_3d = F.normalize(torch.from_numpy(self.data[idx]['3d_pooled']).float(), dim=0) #3D 데이터 정규화
+        # feat_2d = F.normalize(torch.from_numpy(self.data[idx]['2d']).float(), dim=0)
+        # feat_3d = F.normalize(torch.from_numpy(self.data[idx]['3d']).float(), dim=0)
         video = torch.cat((feat_2d, feat_3d)) #2D와 3D 특징을 결합하여 하나의 비디오 특징 생성합니다.
 
         # load audio and zero pad/truncate if necessary
