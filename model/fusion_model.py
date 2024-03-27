@@ -12,6 +12,7 @@ from model.utils.projection import projection_net
 class EverythingAtOnceModel(nn.Module):
     def __init__(self,
                  args,
+                 embed_dim=1024,
                  video_embed_dim=4096,
                  text_embed_dim=300,
                  video_max_tokens=None,
@@ -23,10 +24,14 @@ class EverythingAtOnceModel(nn.Module):
                  davenet_v2=True,
                  individual_projections=True,
                  use_positional_emb=False,
+                 use_softmax=False
                  ):
         super().__init__()
 
-        self.fusion = FusionTransformer()
+        self.embed_dim = embed_dim
+        self.use_softmax = use_softmax
+
+        self.fusion = FusionTransformer(embed_dim=self.embed_dim, use_softmax=self.use_softmax)
 
         self.args = args
         self.token_projection = args.token_projection
@@ -35,12 +40,10 @@ class EverythingAtOnceModel(nn.Module):
         self.use_positional_emb = use_positional_emb
         self.strategy_audio_pooling = strategy_audio_pooling
 
-        embed_dim = 1024
-
-        self.video_norm_layer = nn.LayerNorm(embed_dim, eps=1e-6)
-        self.text_norm_layer = nn.LayerNorm(embed_dim, eps=1e-6)
-        self.audio_norm_layer = nn.LayerNorm(embed_dim, eps=1e-6)
-        self.norm_layer = nn.LayerNorm(embed_dim, eps=1e-6)
+        self.video_norm_layer = nn.LayerNorm(self.embed_dim, eps=1e-6)
+        self.text_norm_layer = nn.LayerNorm(self.embed_dim, eps=1e-6)
+        self.audio_norm_layer = nn.LayerNorm(self.embed_dim, eps=1e-6)
+        self.norm_layer = nn.LayerNorm(self.embed_dim, eps=1e-6)
 
         # audio token preprocess
         self.davenet = load_DAVEnet(v2=davenet_v2)
@@ -58,9 +61,9 @@ class EverythingAtOnceModel(nn.Module):
             assert video_max_tokens is not None
             assert text_max_tokens is not None
             assert audio_max_num_STFT_frames is not None
-            self.video_pos_embed = nn.Parameter(torch.zeros(1, video_max_tokens, embed_dim))
-            self.text_pos_embed = nn.Parameter(torch.zeros(1, text_max_tokens, embed_dim))
-            self.audio_pos_embed = nn.Parameter(torch.zeros(1, self.audio_max_tokens, embed_dim))
+            self.video_pos_embed = nn.Parameter(torch.zeros(1, video_max_tokens, self.embed_dim))
+            self.text_pos_embed = nn.Parameter(torch.zeros(1, text_max_tokens, self.embed_dim))
+            self.audio_pos_embed = nn.Parameter(torch.zeros(1, self.audio_max_tokens, self.embed_dim))
         else:
             self.video_pos_embed = None
             self.text_pos_embed = None
@@ -68,11 +71,11 @@ class EverythingAtOnceModel(nn.Module):
 
         audio_embed_dim = 4096 if davenet_v2 else 1024
         if self.token_projection == 'projection_net':
-            self.token_proj = projection_net()
+            self.token_proj = projection_net(embed_dim=self.embed_dim)
         else:
-            self.video_token_proj = get_projection(video_embed_dim, embed_dim, self.token_projection)
-            self.text_token_proj = get_projection(text_embed_dim, embed_dim, self.token_projection)
-            self.audio_token_proj = get_projection(audio_embed_dim, embed_dim, self.token_projection)
+            self.video_token_proj = get_projection(video_embed_dim, self.embed_dim, self.token_projection)
+            self.text_token_proj = get_projection(text_embed_dim, self.embed_dim, self.token_projection)
+            self.audio_token_proj = get_projection(audio_embed_dim, self.embed_dim, self.token_projection)
         
         # if not self.individual_projections:
         #     self.proj = get_projection(embed_dim, projection_dim, projection)
@@ -175,16 +178,6 @@ class EverythingAtOnceModel(nn.Module):
         #     text_raw_embed['all_tokens'] = text_raw_embed['all_tokens'] + self.text_pos_embed
         #     video_raw_embed['all_tokens'] = video_raw_embed['all_tokens'] + self.video_pos_embed
         #     audio_raw_embed['all_tokens'] = audio_raw_embed['all_tokens'] + self.audio_pos_embed
-        
-
-
-
-
-
-
-
-
-
 
         # text = self.fusion(text=text_raw_embed)['text']
         # video = self.fusion(video=video_raw_embed)['video']

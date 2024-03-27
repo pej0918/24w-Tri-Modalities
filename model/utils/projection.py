@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch as th
 import torch.nn.functional as F
 
+from model.utils.davenet import load_DAVEnet
+
 
 # 입력과 출력의 차원수가 동일하다
 class Context_Gating(nn.Module):
@@ -60,7 +62,7 @@ class Fused_Gated_Unit(nn.Module):
 class projection_net(nn.Module):
     def __init__(
             self,
-            embd_dim=1024,
+            embed_dim=1024,
             video_dim=4096,
             we_dim=300,
             cross_attention=False
@@ -70,17 +72,18 @@ class projection_net(nn.Module):
 
         # Fuse적용 X
         if not cross_attention:
-            self.GU_audio = Gated_Embedding_Unit(40*5120, embd_dim)
-            self.GU_video = Gated_Embedding_Unit(video_dim, embd_dim)
-            self.text_pooling_caption = Sentence_Maxpool(we_dim, embd_dim)
-            self.GU_text_captions = Gated_Embedding_Unit(embd_dim, embd_dim)
+            self.DAVEnet = load_DAVEnet()
+            self.GU_audio = Gated_Embedding_Unit(embed_dim, embed_dim)
+            self.GU_video = Gated_Embedding_Unit(video_dim, embed_dim)
+            self.text_pooling_caption = Sentence_Maxpool(we_dim, embed_dim)
+            self.GU_text_captions = Gated_Embedding_Unit(embed_dim, embed_dim)
         else:
             # 각각의 차원: 원하는 차원 // 2
-            self.DAVEnet_projection = nn.Linear(1024, embd_dim // 2) 
-            self.video_projection = nn.Linear(video_dim, embd_dim // 2)
-            self.text_pooling_caption = Sentence_Maxpool(we_dim, embd_dim // 2)
+            self.DAVEnet_projection = nn.Linear(1024, embed_dim // 2) 
+            self.video_projection = nn.Linear(video_dim, embed_dim // 2)
+            self.text_pooling_caption = Sentence_Maxpool(we_dim, embed_dim // 2)
             # correlation반영
-            self.GU_fuse= Fused_Gated_Unit(embd_dim // 2, embd_dim)
+            self.GU_fuse= Fused_Gated_Unit(embed_dim // 2, embed_dim)
 
     def forward(self, video, audio_input, nframes, text=None):
         # if not self.training: # controlled by net.train() / net.eval() (use for downstream tasks) 
@@ -94,8 +97,9 @@ class projection_net(nn.Module):
         #         pooled_audio_outputs_list.append(audioPoolfunc(audio_outputs[idx][:, :, 0:nF]).unsqueeze(0))
         #     audio = th.cat(pooled_audio_outputs_list).squeeze(3).squeeze(2)
         # else:
-        audio = audio_input.view(audio_input.shape[0], -1)
-        # audio = audio_input.mean(dim=1) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
+        audio = self.DAVEnet(audio_input) # [16, 1024, 320]
+        # audio = audio_input.view(audio_input.shape[0], -1)
+        audio = audio.mean(dim=2) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
         # print('audio shape:', audio.shape)
 
         if self.cross_attention:
