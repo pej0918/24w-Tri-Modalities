@@ -3,7 +3,7 @@ import collections
 from timm.models.vision_transformer import trunc_normal_
 import torch.nn as nn
 from functools import partial
-import torch
+import torchFusionTransformer
 from model.utils.layers import FusionBlock
 
 
@@ -144,7 +144,7 @@ class FusionTransformer(nn.Module):
         output = tokens[:,0,:].squeeze(1)
         output = self.mlp_head(output)
 
-        return output
+        return x
 
 
 

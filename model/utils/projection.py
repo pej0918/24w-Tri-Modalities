@@ -73,10 +73,10 @@ class projection_net(nn.Module):
         # Fuse적용 X
         if not cross_attention:
             self.DAVEnet = load_DAVEnet()
-            self.GU_audio = Gated_Embedding_Unit(embed_dim, embed_dim)
+            self.GU_audio = Gated_Embedding_Unit(320, embed_dim)
             self.GU_video = Gated_Embedding_Unit(video_dim, embed_dim)
-            self.text_pooling_caption = Sentence_Maxpool(we_dim, embed_dim)
-            self.GU_text_captions = Gated_Embedding_Unit(embed_dim, embed_dim)
+            # self.text_pooling_caption = Sentence_Maxpool(we_dim, embed_dim)
+            self.GU_text_captions = Gated_Embedding_Unit(we_dim, embed_dim)
         else:
             # 각각의 차원: 원하는 차원 // 2
             self.DAVEnet_projection = nn.Linear(1024, embed_dim // 2) 
@@ -99,7 +99,7 @@ class projection_net(nn.Module):
         # else:
         audio = self.DAVEnet(audio_input) # [16, 1024, 320]
         # audio = audio_input.view(audio_input.shape[0], -1)
-        audio = audio.mean(dim=2) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
+        # audio = audio.mean(dim=2) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
         # print('audio shape:', audio.shape)
 
         if self.cross_attention:
@@ -114,7 +114,8 @@ class projection_net(nn.Module):
             return audio_text, audio_video, text_video
         else:
             # 차원수 조절 + GU
-            text = self.GU_text_captions(self.text_pooling_caption(text)) # [16,30,300] -> [16,4096]
-            audio = self.GU_audio(audio) # [16,5120] -> [16,4096]
+            # text = self.GU_text_captions(self.text_pooling_caption(text)) # [16,30,300] -> [16,4096]
+            text = self.GU_text_captions(text)
+            audio = self.GU_audio(audio) # [16,5120] -> [16,4096]  [16, 1024, 320] -> 
             video = self.GU_video(video) # [16,40*4096] -> [16,4096]
             return audio, text, video

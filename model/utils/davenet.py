@@ -96,7 +96,6 @@ class ResDavenet(nn.Module):
         if self.layer5 is not None:
             x = self.layer5(x)
             x = self.layer6(x)
-
         x = x.squeeze(2)
         return x
 

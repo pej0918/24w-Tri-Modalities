@@ -45,7 +45,7 @@ def TrainOneBatch(model, opt, data, loss_fun, apex=False):
     audio = audio.view(-1, audio.shape[-2], audio.shape[-1])
     text = text.view(-1, text.shape[-2], text.shape[-1])
     nframes = nframes.view(-1)
-    # print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
+    print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
 
     opt.zero_grad()
     
