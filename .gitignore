@@ -1,4 +1,5 @@
 data/
+ckpt/
 
 .idea/
 .DS_store

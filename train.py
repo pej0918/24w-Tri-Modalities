@@ -21,6 +21,7 @@ from model.fusion_model import EverythingAtOnceModel
 from gensim.models.keyedvectors import KeyedVectors
 from torch.utils.data import DataLoader
 
+
 import time
 import torch 
 import torch.nn as nn
@@ -33,7 +34,7 @@ import tqdm
 
 import matplotlib.pyplot as plt
 
-def TrainOneBatch(model, opt, data, loss_fun, apex=False):
+def TrainOneBatch(model, opt, data, loss_fun):
     video = data['video'].cuda()
     audio = data['audio'].cuda()
     text = data['text'].cuda()
@@ -86,12 +87,13 @@ def calculate_accuracy(predictions, labels):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--we_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/GoogleNews-vectors-negative300.bin', type=str)
-    parser.add_argument('--data_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/msrvtt_category_train.pkl', type=str)
-    parser.add_argument('--val_data_path', default='C:/Users/heeryung/code/24w_deep_daiv/msrvtt_category_test.pkl', type=str)
-    parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt/trial2_audio_flatten', type=str)
+    parser.add_argument('--we_path', default='data/preprocessed_data/GoogleNews-vectors-negative300.bin', type=str)
+    parser.add_argument('--data_path', default='data/preprocessed_data/msrvtt_category_train.pkl', type=str)
+    parser.add_argument('--val_data_path', default='data/preprocessed_data/msrvtt_category_test.pkl', type=str)
+    parser.add_argument('--save_path', default='./ckpt/trial2_audio_flatten', type=str)
     parser.add_argument('--token_projection', default='projection_net', type=str) # 한결이가 만든 projection_net 쓸건지
-    parser.add_argument('--batch_size', default=16, type=int) # 한결이가 만든 projection_net 쓸건지
+    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--epoch', default=1000, type=int)
     args = parser.parse_args()
 
     # setup data_loader instances
@@ -123,11 +125,12 @@ if __name__ == '__main__':
     total_text_correct = 0
     total_hard_vote_correct = 0
     total_soft_vote_correct = 0
+    total_samples = 0
 
-   
 
-    for epoch in range(0,1001):
-        net.train()
+    net.train()
+
+    for epoch in range(0,args.epoch):
         running_loss = 0.0
         print('Epoch: %d' % epoch)
         for i_batch, sample_batch in enumerate(data_loader):
@@ -144,6 +147,7 @@ if __name__ == '__main__':
             torch.save(checkpoint, os.path.join(save_path, 'epoch{}.pth'.format(epoch)))
 
             net.eval()
+
             with torch.no_grad():
                 for val_batch in val_data_loader:
                     video = val_batch['video'].cuda()
@@ -174,22 +178,29 @@ if __name__ == '__main__':
                     audio_correct = (at_preds == category).sum().item()
                     text_correct = (tv_preds == category).sum().item()
 
+                    total_samples += category.size(0)
                     total_video_correct += video_correct
                     total_audio_correct += audio_correct
                     total_text_correct += text_correct
+
+
+                ######### EDIT : accuracy 수정 len(val_data_loader) * batch_size => total_samples ##############
+                # 근데 궁금한거 원래는 len(val_data_loader) * batch_size 이게 들어가는게 아니라 val_data_dataset이 들어가서 accuracy를 구하는데,,, 또 헷갈림 우리꺼에 적용이 안되는듯...
                 
                 # Calculate final accuracies
-                video_accuracy = total_video_correct / (len(val_data_loader) * batch_size)
-                audio_accuracy = total_audio_correct / (len(val_data_loader) * batch_size)
-                text_accuracy = total_text_correct / (len(val_data_loader) * batch_size)
-                hard_vote_accuracy = total_hard_vote_correct / (len(val_data_loader) * batch_size)
-                soft_vote_accuracy = total_soft_vote_correct / (len(val_data_loader) * batch_size)
+                video_accuracy = total_video_correct / total_samples
+                audio_accuracy = total_audio_correct / total_samples
+                text_accuracy = total_text_correct / total_samples
+                hard_vote_accuracy = total_hard_vote_correct / total_samples
+                soft_vote_accuracy = total_soft_vote_correct / total_samples
 
-                print("Video accuracy:", video_accuracy)
-                print("Audio accuracy:", audio_accuracy)
-                print("Text accuracy:", text_accuracy)
-                print("Hard voting accuracy:", hard_vote_accuracy)
-                print("Soft voting accuracy:", soft_vote_accuracy)
+                print(f"Video accuracy:, {video_accuracy:.4f}")
+                print(f"Text accuracy:, {text_accuracy:.4f}")
+                print(f"audio accuracy:, {audio_accuracy:.4f}")
+                print(f"Hard voting accuracy:, {hard_vote_accuracy:.4f}")
+                print(f"soft voting accuracy:, {soft_vote_accuracy:.4f}")
+
+            ##############   Edit ##############
 
             fig, ax1 = plt.subplots()
             ax1.plot(epoch, hard_vote_accuracy, color = 'red', alpha = 0.5)
