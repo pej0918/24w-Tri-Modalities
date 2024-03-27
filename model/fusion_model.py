@@ -2,12 +2,14 @@ import numpy as np
 import torch
 from timm.models.layers import trunc_normal_
 from torch import nn as nn
+import torch.nn.functional as F
 
 from model.utils.utils import normalize_embeddings
 from model.utils.layers import get_projection
 from model.utils.fusion_transformer import FusionTransformer
 from model.utils.davenet import load_DAVEnet
 from model.utils.projection import projection_net
+from model.utils.classifier import Classifier
 
 class EverythingAtOnceModel(nn.Module):
     def __init__(self,
@@ -23,15 +25,16 @@ class EverythingAtOnceModel(nn.Module):
                  strategy_audio_pooling='none',
                  davenet_v2=True,
                  individual_projections=True,
-                 use_positional_emb=False,
-                 use_softmax=False
+                 use_positional_emb=False
                  ):
         super().__init__()
 
         self.embed_dim = embed_dim
-        self.use_softmax = use_softmax
+        self.use_softmax = args.use_softmax
+        self.use_cls_token = args.use_cls_token
+        self.num_classes = args.num_classes
 
-        self.fusion = FusionTransformer(embed_dim=self.embed_dim, use_softmax=self.use_softmax)
+        self.fusion = FusionTransformer(embed_dim=self.embed_dim, use_softmax=self.use_softmax, use_cls_token=self.use_cls_token, num_classes = self.num_classes)
 
         self.args = args
         self.token_projection = args.token_projection
@@ -85,6 +88,8 @@ class EverythingAtOnceModel(nn.Module):
         #     self.audio_proj = get_projection(embed_dim, projection_dim, projection)
 
         self.init_weights()
+
+        self.classifier = Classifier(num_classes=self.num_classes, embed_dim=self.embed_dim)
 
     def init_weights(self):
         for weights in [self.video_pos_embed, self.audio_pos_embed, self.text_pos_embed]:
@@ -152,8 +157,6 @@ class EverythingAtOnceModel(nn.Module):
         return audio, text, video
 
     def forward(self, video, audio, nframes, text, category, force_cross_modal=False):
-        output = {}
-
         if self.token_projection == 'projection_net':
             audio_raw_embed, text_raw_embed, video_raw_embed = self.extract_tokens(video, audio, text, nframes)
             video_raw_embed = torch.unsqueeze(video_raw_embed, 1) # ([16, 1, 1024] [16, 1024, 1024] [16, 30, 1024]
@@ -162,75 +165,27 @@ class EverythingAtOnceModel(nn.Module):
             video_raw_embed = self.extract_video_tokens(video) # [16, 4096]
             audio_raw_embed = self.extract_audio_tokens(audio, nframes) # [16, 80, 4096]
 
-        va = self.fusion(key=video_raw_embed, query=audio_raw_embed)
-        vt = self.fusion(key=video_raw_embed, query=text_raw_embed)
-        v = torch.concat((va, vt), dim=1)
+        va = self.fusion(key=video_raw_embed, query=audio_raw_embed) # [16, 1024, 1024]
+        vt = self.fusion(key=video_raw_embed, query=text_raw_embed) # [16, 30, 1024]
 
-        at = self.fusion(key=audio_raw_embed, query=text_raw_embed)
-        av = self.fusion(key=audio_raw_embed, query=video_raw_embed)
-        a = torch.concat((at, av), dim=1)
+        at = self.fusion(key=audio_raw_embed, query=text_raw_embed) # [16, 30, 1024]
+        av = self.fusion(key=audio_raw_embed, query=video_raw_embed) # [16, 1, 1024]
 
-        ta = self.fusion(key=text_raw_embed, query=audio_raw_embed)
-        tv = self.fusion(key=text_raw_embed, query=video_raw_embed)
-        t = torch.concat((ta, tv), dim=1)
-        
-        return v, a, t
-        # print('va:',va.shape,'at:',at.shape,'tv:',tv.shape)
+        ta = self.fusion(key=text_raw_embed, query=audio_raw_embed) # [16, 1024, 1024]
+        tv = self.fusion(key=text_raw_embed, query=video_raw_embed) # [16, 1, 1024]
 
-        # output['text_nonempty_input_mask'] = text_raw_embed['nonempty_input_mask']
-        # output['video_nonempty_input_mask'] = video_raw_embed['nonempty_input_mask']
-        # output['audio_nonempty_input_mask'] = audio_raw_embed['nonempty_input_mask']
-
-        # # add positional embedding after masking
-        # if self.use_positional_emb:
-        #     text_raw_embed['all_tokens'] = text_raw_embed['all_tokens'] + self.text_pos_embed
-        #     video_raw_embed['all_tokens'] = video_raw_embed['all_tokens'] + self.video_pos_embed
-        #     audio_raw_embed['all_tokens'] = audio_raw_embed['all_tokens'] + self.audio_pos_embed
-
-        # text = self.fusion(text=text_raw_embed)['text']
-        # video = self.fusion(video=video_raw_embed)['video']
-        # audio = self.fusion(audio=audio_raw_embed)['audio']
-
-        # if self.individual_projections:
-        #     text_proj, video_proj, audio_proj = self.text_proj, self.video_proj, self.audio_proj
-        # else:
-        #     text_proj, video_proj, audio_proj = self.proj, self.proj, self.proj
-
-        # output["text_embed"] = text_proj(text['embed'])
-        # output["video_embed"] = video_proj(video['embed'])
-        # output["audio_embed"] = audio_proj(audio['embed'])
-
-        # if self.cross_modal or force_cross_modal:
-        #     tv = self.fusion(text=text_raw_embed,
-        #                      video=video_raw_embed)
-        #     ta = self.fusion(text=text_raw_embed,
-        #                      audio=audio_raw_embed)
-        #     va = self.fusion(video=video_raw_embed,
-        #                      audio=audio_raw_embed)
-
-        #     if self.fusion.cls_token is not None:
-        #         assert not self.individual_projections
-        #         output["tv_embed"] = self.proj(tv['text_video']['embed'])
-        #         output["ta_embed"] = self.proj(ta['text_audio']['embed'])
-        #         output["va_embed"] = self.proj(va['video_audio']['embed'])
-        #     else:
-        #         output["tv_embed"] = (normalize_embeddings(text_proj(tv['text']['embed'])) +
-        #                               normalize_embeddings(video_proj(tv['video']['embed']))) / 2
-
-        #         output["ta_embed"] = (normalize_embeddings(text_proj(ta['text']['embed'])) +
-        #                               normalize_embeddings(audio_proj(ta['audio']['embed']))) / 2
-
-        #         output["va_embed"] = (normalize_embeddings(video_proj(va['video']['embed'])) +
-        #                               normalize_embeddings(audio_proj(va['audio']['embed']))) / 2
-
-        # if force_cross_modal:
-        #     #  needed for ablation
-        #     output["t+v_embed"] = (normalize_embeddings(output["text_embed"]) +
-        #                            normalize_embeddings(output["video_embed"])) / 2
-        #     output["t+a_embed"] = (normalize_embeddings(output["text_embed"]) +
-        #                            normalize_embeddings(output["audio_embed"])) / 2
-        #     output["v+a_embed"] = (normalize_embeddings(output["video_embed"]) +
-        #                            normalize_embeddings(output["audio_embed"])) / 2
-
-        
+        if self.use_cls_token:
+            v = (va + vt) / 2
+            a = (at + av) / 2
+            t = (ta + tv) / 2
+            return v, a, t
+        else:
+            v = torch.concat((va,vt), dim=1) # [16, 1054, 1024]
+            a = torch.concat((at,av), dim=1) # [16, 31, 1024]
+            t = torch.concat((ta,tv), dim=1) # [16, 1025, 1024]
+            # print('va',va.shape,'vt',vt.shape,'v',v.shape)
+            # print('at',at.shape,'av',av.shape,'a',a.shape)
+            # print('ta',ta.shape,'tv',tv.shape,'t',t.shape)
+            output = self.classifier(v, a, t)
+            return output
 
