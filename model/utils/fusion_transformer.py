@@ -3,7 +3,7 @@ import collections
 from timm.models.vision_transformer import trunc_normal_
 import torch.nn as nn
 from functools import partial
-import torch
+import torchFusionTransformer
 from model.utils.layers import FusionBlock
 
 
@@ -12,7 +12,8 @@ class FusionTransformer(nn.Module):
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=None,
                  act_layer=None,
                  use_cls_token=True,
-                 num_classes=20
+                 num_classes=20,
+                 use_softmax=False
                  ):
         super().__init__()
 
@@ -31,7 +32,7 @@ class FusionTransformer(nn.Module):
         self.blocks = nn.Sequential(*[
             FusionBlock(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, drop=drop_rate,
-                attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer, act_layer=act_layer,
+                attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer, act_layer=act_layer, use_softmax=use_softmax
             )
             for i in range(depth)])
 
@@ -143,7 +144,7 @@ class FusionTransformer(nn.Module):
         output = tokens[:,0,:].squeeze(1)
         output = self.mlp_head(output)
 
-        return output
+        return x
 
 
 
