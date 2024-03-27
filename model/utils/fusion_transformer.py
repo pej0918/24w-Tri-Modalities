@@ -3,7 +3,7 @@ import collections
 from timm.models.vision_transformer import trunc_normal_
 import torch.nn as nn
 from functools import partial
-import torchFusionTransformer
+import torch
 from model.utils.layers import FusionBlock
 
 
@@ -48,18 +48,10 @@ class FusionTransformer(nn.Module):
         self.apply(_init_vit_weights)
 
     def forward(self, key, query, key_modal='', query_modal=''):
-    # def forward(self, key, query):
-        # concatenate tokens
-        # tokens = {}
-        # if text is not None:
-        #     tokens['text'] = text
-        # if video is not None:
-        #     tokens['video'] = video
-        # if audio is not None:
-        #     tokens['audio'] = audio
-
-        token_k = key.view(key.shape[0],1,self.embed_dim)
-        token_q = query.view(query.shape[0],1,self.embed_dim)
+        # token_k = key.view(key.shape[0],1,self.embed_dim)
+        # token_q = query.view(query.shape[0],1,self.embed_dim)
+        token_k = key
+        token_q = query
 
         # tokens = [x for x in data if x is not None]
         # tokens = torch.cat(tokens, dim=1)
@@ -83,19 +75,29 @@ class FusionTransformer(nn.Module):
             # cls_token_mask = torch.ones((1, 1)).to(tokens_mask.device).expand(tokens_mask.shape[0], -1)
             # tokens_mask = torch.cat((cls_token_mask, tokens_mask), dim=1)
             offset = 1
-        
-        # print('cls + token_k:', token_k.shape)
 
+        # FusionBlock (cross attnetion)
         for block in self.blocks:
             tokens = block(token_k, token_q)
         
+        if self.cls_token is None:
+            output = tokens
+        else:
+            output = tokens[:,0,:].squeeze(1)
+            output = self.mlp_head(output)
+
+        return output
+        
         # print('output:', tokens.shape)
 
-        output = collections.OrderedDict()
+        # output = collections.OrderedDict()
 
-        def _get_average(tokens, attention_mask):
-            attention_mask = attention_mask.unsqueeze(2).expand_as(tokens)
-            return (tokens * attention_mask).sum(1) / attention_mask.sum(1)
+        # def _get_average(tokens, attention_mask):
+        #     attention_mask = attention_mask.unsqueeze(2).expand_as(tokens)
+        #     return (tokens * attention_mask).sum(1) / attention_mask.sum(1)
+        
+        
+
 
         # if text is not None:
         #     n_tokens = text['all_tokens'].size(1)
@@ -141,11 +143,7 @@ class FusionTransformer(nn.Module):
         #         output[modalities] = {}
         #     output[modalities]['embed'] = tokens[:, 0]
 
-        output = tokens[:,0,:].squeeze(1)
-        output = self.mlp_head(output)
-
-        return x
-
+        
 
 
 def _init_vit_weights(module: nn.Module, name: str = '', head_bias: float = 0., jax_impl: bool = False):
