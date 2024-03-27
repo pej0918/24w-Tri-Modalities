@@ -62,7 +62,7 @@ class Fused_Gated_Unit(nn.Module):
 class projection_net(nn.Module):
     def __init__(
             self,
-            embd_dim=1024,
+            embed_dim=1024,
             video_dim=4096,
             we_dim=300,
             cross_attention=False
@@ -73,17 +73,17 @@ class projection_net(nn.Module):
         # Fuse적용 X
         if not cross_attention:
             self.DAVEnet = load_DAVEnet()
-            self.GU_audio = Gated_Embedding_Unit(embd_dim, embd_dim)
-            self.GU_video = Gated_Embedding_Unit(video_dim, embd_dim)
-            self.text_pooling_caption = Sentence_Maxpool(we_dim, embd_dim)
-            self.GU_text_captions = Gated_Embedding_Unit(embd_dim, embd_dim)
+            self.GU_audio = Gated_Embedding_Unit(embed_dim, embed_dim)
+            self.GU_video = Gated_Embedding_Unit(video_dim, embed_dim)
+            self.text_pooling_caption = Sentence_Maxpool(we_dim, embed_dim)
+            self.GU_text_captions = Gated_Embedding_Unit(embed_dim, embed_dim)
         else:
             # 각각의 차원: 원하는 차원 // 2
-            self.DAVEnet_projection = nn.Linear(1024, embd_dim // 2) 
-            self.video_projection = nn.Linear(video_dim, embd_dim // 2)
-            self.text_pooling_caption = Sentence_Maxpool(we_dim, embd_dim // 2)
+            self.DAVEnet_projection = nn.Linear(1024, embed_dim // 2) 
+            self.video_projection = nn.Linear(video_dim, embed_dim // 2)
+            self.text_pooling_caption = Sentence_Maxpool(we_dim, embed_dim // 2)
             # correlation반영
-            self.GU_fuse= Fused_Gated_Unit(embd_dim // 2, embd_dim)
+            self.GU_fuse= Fused_Gated_Unit(embed_dim // 2, embed_dim)
 
     def forward(self, video, audio_input, nframes, text=None):
         # if not self.training: # controlled by net.train() / net.eval() (use for downstream tasks) 

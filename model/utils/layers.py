@@ -63,10 +63,10 @@ class FusionBlock(nn.Module):
     """
     def __init__(
             self, dim, num_heads, mlp_ratio=4., qkv_bias=False, drop=0., attn_drop=0., init_values=None,
-            drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm):
+            drop_path=0., act_layer=nn.GELU, norm_layer=nn.LayerNorm, use_softmax=False):
         super().__init__()
         self.norm1 = norm_layer(dim)
-        self.cross_attn = MultiHeadCrossAttention(d_model=dim, n_head=num_heads)
+        self.cross_attn = MultiHeadCrossAttention(d_model=dim, n_head=num_heads, use_softmax=use_softmax)
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
@@ -80,8 +80,9 @@ class FusionBlock(nn.Module):
         return output
 
 class ScaleDotProductAttention(nn.Module):
-    def __init__(self):
+    def __init__(self, use_softmax):
         super(ScaleDotProductAttention, self).__init__()
+        self.use_softmax = use_softmax
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, q, k, v, e=1e-12):
@@ -89,18 +90,20 @@ class ScaleDotProductAttention(nn.Module):
         batch_size, head, length, d_tensor = k.size()
 
         k_t = k.transpose(2,3)
-        score = (q @ k_t) / math.sqrt(d_tensor)  # scaled dot product 
-        score = self.softmax(score)  #[0,1]
+        score = (q @ k_t) / math.sqrt(d_tensor)  # scaled dot product
+        if self.use_softmax:
+            score = self.softmax(score)  #[0,1]
         v = score @ v
 
         return v, score 
     
 class MultiHeadCrossAttention(nn.Module):
-    def __init__(self, d_model, n_head):
+    def __init__(self, d_model, n_head, use_softmax):
         super(MultiHeadCrossAttention, self).__init__()
         self.d_model = d_model
         self.n_head = n_head
-        self.attention = ScaleDotProductAttention()
+        self.use_softmax = use_softmax
+        self.attention = ScaleDotProductAttention(use_softmax)
 
         self.w_k = nn.Linear(d_model, d_model)
         self.w_q = nn.Linear(d_model, d_model)

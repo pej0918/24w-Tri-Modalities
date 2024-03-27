@@ -24,12 +24,14 @@ class EverythingAtOnceModel(nn.Module):
                  davenet_v2=True,
                  individual_projections=True,
                  use_positional_emb=False,
+                 use_softmax=False
                  ):
         super().__init__()
 
         self.embed_dim = embed_dim
+        self.use_softmax = use_softmax
 
-        self.fusion = FusionTransformer(embed_dim=self.embed_dim)
+        self.fusion = FusionTransformer(embed_dim=self.embed_dim, use_softmax=self.use_softmax)
 
         self.args = args
         self.token_projection = args.token_projection
@@ -176,16 +178,6 @@ class EverythingAtOnceModel(nn.Module):
         #     text_raw_embed['all_tokens'] = text_raw_embed['all_tokens'] + self.text_pos_embed
         #     video_raw_embed['all_tokens'] = video_raw_embed['all_tokens'] + self.video_pos_embed
         #     audio_raw_embed['all_tokens'] = audio_raw_embed['all_tokens'] + self.audio_pos_embed
-        
-
-
-
-
-
-
-
-
-
 
         # text = self.fusion(text=text_raw_embed)['text']
         # video = self.fusion(video=video_raw_embed)['video']

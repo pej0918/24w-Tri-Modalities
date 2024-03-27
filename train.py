@@ -16,7 +16,7 @@ import os
 
 # from parse_config import ConfigParser
 
-from data_loader.msrvtt_dataloader import MSRVTT_DataLoader
+from dataset.msrvtt_dataloader import MSRVTT_DataLoader
 from model.fusion_model import EverythingAtOnceModel
 from gensim.models.keyedvectors import KeyedVectors
 from torch.utils.data import DataLoader
@@ -90,6 +90,8 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/msrvtt_category_train.pkl', type=str)
     parser.add_argument('--val_data_path', default='C:/Users/heeryung/code/24w_deep_daiv/msrvtt_category_test.pkl', type=str)
     parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt/trial3_audio_davenet', type=str)
+
+    parser.add_argument('--use_softmax', default=False, type=int) 
     parser.add_argument('--token_projection', default='projection_net', type=str) 
     parser.add_argument('--batch_size', default=16, type=int) 
     args = parser.parse_args()
@@ -110,6 +112,7 @@ if __name__ == '__main__':
             data_path=args.val_data_path,
             we=we
             )
+    
     batch_size = args.batch_size
     data_loader = DataLoader(dataset, batch_size=batch_size)
     val_data_loader = DataLoader(val_dataset, batch_size=batch_size)
