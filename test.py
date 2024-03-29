@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 from data_loader.msrvtt_dataloader import MSRVTT_DataLoader
 from model.fusion_model import EverythingAtOnceModel
 from gensim.models.keyedvectors import KeyedVectors
@@ -10,8 +9,8 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--we_path', default='./data/GoogleNews-vectors-negative300.bin', type=str)
 parser.add_argument('--data_path', default='C:/Users/heeryung/code/24w_deep_daiv/msrvtt_category_test.pkl', type=str)
-parser.add_argument('--checkpoint_path', default='C:/Users/heeryung/code/24w_deep_daiv/chpt2/epoch90.pth', type=str)
-parser.add_argument('--token_projection', default='projection_net', type=str) # 한결이가 만든 projection_net 쓸건지
+parser.add_argument('--checkpoint_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt/trial3_audio_davenet/epoch100.pth', type=str)
+parser.add_argument('--token_projection', default='projection_net', type=str) 
 args = parser.parse_args()
 
 checkpoint = torch.load(args.checkpoint_path)
@@ -63,7 +62,6 @@ total_audio_correct = 0
 total_text_correct = 0
 total_hard_vote_correct = 0
 total_soft_vote_correct = 0
-
 
 for data in data_loader:
     video = data['video'].cuda()

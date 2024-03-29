@@ -1,5 +1,4 @@
 import argparse
-import collections
 # from sacred import Experiment
 # from neptunecontrib.monitoring.sacred import NeptuneObserver
 
@@ -16,30 +15,21 @@ import os
 
 # from parse_config import ConfigParser
 
-from data_loader.msrvtt_dataloader import MSRVTT_DataLoader
+from dataset.msrvtt_dataloader import MSRVTT_DataLoader
 from model.fusion_model import EverythingAtOnceModel
 from gensim.models.keyedvectors import KeyedVectors
 from torch.utils.data import DataLoader
 
-
-import time
-import torch 
-import torch.nn as nn
-from torch.utils.data import Dataset
-import torch.nn.functional as F
-from functools import partial
-
-import math
-import tqdm
+import torch
 
 import matplotlib.pyplot as plt
 
-def TrainOneBatch(model, opt, data, loss_fun):
-    video = data['video'].cuda()
-    audio = data['audio'].cuda()
-    text = data['text'].cuda()
-    nframes = data['nframes'].cuda()
-    category = data['category'].cuda()
+def TrainOneBatch(model, opt, data, loss_fun, apex=False, use_cls_token=False):
+    video = data['video'].to(device)
+    audio = data['audio'].to(device)
+    text = data['text'].to(device)
+    nframes = data['nframes'].to(device)
+    category = data['category'].to(device)
     # print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
 
     video = video.view(-1, video.shape[-1])
@@ -50,12 +40,17 @@ def TrainOneBatch(model, opt, data, loss_fun):
 
     opt.zero_grad()
     
-    # AVLnet-Text independent audio and text branches
-    va, at, tv = model(video, audio, nframes, text, category)
-    loss_va = loss_fun(va, category)
-    loss_at = loss_fun(at, category)
-    loss_tv = loss_fun(tv, category)
-    loss = loss_va + loss_at + loss_tv
+    #loss 
+    if use_cls_token:
+        v, a, t = model(video, audio, nframes, text, category)
+        loss_v = loss_fun(v, category)
+        loss_a = loss_fun(a, category)
+        loss_t = loss_fun(t, category)
+        loss = loss_v + loss_a + loss_t
+    else:
+        pred = model(video, audio, nframes, text, category)
+        loss = loss_fun(pred, category)
+
     loss.backward()
     opt.step()
     return loss.item()
@@ -84,17 +79,66 @@ def calculate_accuracy(predictions, labels):
     accuracy = correct / total
     return accuracy
 
+def EvalUseClsToken(val_batch, net):
+    video = val_batch['video'].to(device)
+    audio = val_batch['audio'].to(device)
+    text = val_batch['text'].to(device)
+    nframes = val_batch['nframes'].to(device)
+    category = val_batch['category'].to(device)
+
+    video = video.view(-1, video.shape[-1])
+    audio = audio.view(-1, audio.shape[-2], audio.shape[-1])
+    text = text.view(-1, text.shape[-2], text.shape[-1])
+
+    va, at, tv = net(video, audio, nframes, text, category)
+    va_preds, at_preds, tv_preds = get_predictions(va, at, tv)
+
+    # Soft voting
+    soft_vote_preds = get_soft_voting(va, at, tv)
+    soft_vote_correct = (soft_vote_preds == category).sum().item()
+
+    # Hard voting
+    hard_vote_preds = get_hard_voting(va_preds, at_preds, tv_preds)
+    hard_vote_correct = (hard_vote_preds == category).sum().item()
+
+    # Calculate accuracy for each modality
+    video_correct = (va_preds == category).sum().item()
+    audio_correct = (at_preds == category).sum().item()
+    text_correct = (tv_preds == category).sum().item()
+
+    return video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct
+
+def EvalEmbedvec(val_batch, net):
+    video = val_batch['video'].to(device)
+    audio = val_batch['audio'].to(device)
+    text = val_batch['text'].to(device)
+    nframes = val_batch['nframes'].to(device)
+    category = val_batch['category'].to(device)
+
+    video = video.view(-1, video.shape[-1])
+    audio = audio.view(-1, audio.shape[-2], audio.shape[-1])
+    text = text.view(-1, text.shape[-2], text.shape[-1])
+
+    pred = net(video, audio, nframes, text, category)
+    _, pred = torch.max(pred.data, 1)
+    correct = (pred == category).sum().item()
+    return correct
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--we_path', default='data/preprocessed_data/GoogleNews-vectors-negative300.bin', type=str)
     parser.add_argument('--data_path', default='data/preprocessed_data/msrvtt_category_train.pkl', type=str)
     parser.add_argument('--val_data_path', default='data/preprocessed_data/msrvtt_category_test.pkl', type=str)
-    parser.add_argument('--save_path', default='./ckpt/trial2_audio_flatten', type=str)
-    parser.add_argument('--token_projection', default='projection_net', type=str) # 한결이가 만든 projection_net 쓸건지
+    parser.add_argument('--save_path', default='./ckpt/gate_networkv1', type=str)
+    parser.add_argument('--use_softmax', default=False, type=bool) 
+    parser.add_argument('--use_cls_token', default=True, type=bool)
+    parser.add_argument('--token_projection', default='projection_net', type=str) 
+    parser.add_argument('--num_classes', default=20, type=int) 
     parser.add_argument('--batch_size', default=32, type=int)
-    parser.add_argument('--epoch', default=1000, type=int)
+    parser.add_argument('--device', default="1", help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     args = parser.parse_args()
+
+    device = torch.device("cuda:" + args.device if torch.cuda.is_available() else "cpu")
 
     # setup data_loader instances
     we=None
@@ -103,21 +147,15 @@ if __name__ == '__main__':
     save_path = args.save_path
     os.makedirs(save_path, exist_ok=True)
 
-    dataset = MSRVTT_DataLoader(
-            data_path=args.data_path,
-            we=we
-            )
+    dataset = MSRVTT_DataLoader(data_path=args.data_path, we=we)
+    val_dataset = MSRVTT_DataLoader(data_path=args.val_data_path,we=we)
     
-    val_dataset = MSRVTT_DataLoader(
-            data_path=args.val_data_path,
-            we=we
-            )
     batch_size = args.batch_size
     data_loader = DataLoader(dataset, batch_size=batch_size)
     val_data_loader = DataLoader(val_dataset, batch_size=batch_size)
 
     loss = torch.nn.CrossEntropyLoss()
-    net = EverythingAtOnceModel(args).cuda()
+    net = EverythingAtOnceModel(args).to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr =0.001)
 
     total_video_correct = 0
@@ -125,91 +163,72 @@ if __name__ == '__main__':
     total_text_correct = 0
     total_hard_vote_correct = 0
     total_soft_vote_correct = 0
-    total_samples = 0
+    total_correct = 0
+    total_num = 0
 
+    epochs_list = []
+    accuracy_list = []
 
     net.train()
 
-    for epoch in range(0,args.epoch):
+    for epoch in range(0,1001):
         running_loss = 0.0
-        print('Epoch: %d' % epoch)
+
         for i_batch, sample_batch in enumerate(data_loader):
-            batch_loss = TrainOneBatch(net, optimizer, sample_batch, loss)
+            batch_loss = TrainOneBatch(net, optimizer, sample_batch, loss, use_cls_token=args.use_cls_token)
             running_loss += batch_loss
-        print('Total loss: ', running_loss / len(data_loader))
+
+        print('Epoch: {} / Total loss: {}'.format(epoch, running_loss / len(data_loader)))
 
         if epoch % 10 == 0:
+            # Save checkpoint
             checkpoint = {'epoch': epoch,
                         'model_state_dict': net.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        # 'scheduler_state_dict': scheduler.state_dict()
-                        }
+                        'optimizer_state_dict': optimizer.state_dict()}
             torch.save(checkpoint, os.path.join(save_path, 'epoch{}.pth'.format(epoch)))
 
+            # validation 
             net.eval()
-
             with torch.no_grad():
                 for val_batch in val_data_loader:
-                    video = val_batch['video'].cuda()
-                    audio = val_batch['audio'].cuda()
-                    text = val_batch['text'].cuda()
-                    nframes = val_batch['nframes'].cuda()
-                    category = val_batch['category'].cuda()
+                    category = val_batch['category'].to(device)
 
-                    video = video.view(-1, video.shape[-1])
-                    audio = audio.view(-1, audio.shape[-2], audio.shape[-1])
-                    text = text.view(-1, text.shape[-2], text.shape[-1])
+                    if args.use_cls_token:
+                        video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct = EvalUseClsToken(val_batch, net)
 
-                    va, at, tv = net(video, audio, nframes, text, category)
-                    va_preds, at_preds, tv_preds = get_predictions(va, at, tv)
+                        total_soft_vote_correct += soft_vote_correct
+                        total_hard_vote_correct += hard_vote_correct
+                        total_video_correct += video_correct
+                        total_audio_correct += audio_correct
+                        total_text_correct += text_correct
+                    
+                    else:
+                        correct = EvalEmbedvec(val_batch, net)
 
-                    # Soft voting
-                    soft_vote_preds = get_soft_voting(va, at, tv)
-                    soft_vote_correct = (soft_vote_preds == category).sum().item()
-                    total_soft_vote_correct += soft_vote_correct
-
-                    # Hard voting
-                    hard_vote_preds = get_hard_voting(va_preds, at_preds, tv_preds)
-                    hard_vote_correct = (hard_vote_preds == category).sum().item()
-                    total_hard_vote_correct += hard_vote_correct
-
-                    # Calculate accuracy for each modality
-                    video_correct = (va_preds == category).sum().item()
-                    audio_correct = (at_preds == category).sum().item()
-                    text_correct = (tv_preds == category).sum().item()
-
-                    total_samples += category.size(0)
-                    total_video_correct += video_correct
-                    total_audio_correct += audio_correct
-                    total_text_correct += text_correct
-
-
-                ######### EDIT : accuracy 수정 len(val_data_loader) * batch_size => total_samples ##############
-                # 근데 궁금한거 원래는 len(val_data_loader) * batch_size 이게 들어가는게 아니라 val_data_dataset이 들어가서 accuracy를 구하는데,,, 또 헷갈림 우리꺼에 적용이 안되는듯...
+                    total_num += category.size(0)
                 
                 # Calculate final accuracies
-                video_accuracy = total_video_correct / total_samples
-                audio_accuracy = total_audio_correct / total_samples
-                text_accuracy = total_text_correct / total_samples
-                hard_vote_accuracy = total_hard_vote_correct / total_samples
-                soft_vote_accuracy = total_soft_vote_correct / total_samples
+                if args.use_cls_token:
+                    print("Video accuracy:", total_video_correct / total_num)
+                    print("Audio accuracy:", total_audio_correct / total_num)
+                    print("Text accuracy:", total_text_correct / total_num)
+                    print("Hard voting accuracy:", total_hard_vote_correct / total_num)
+                    print("Soft voting accuracy:", total_soft_vote_correct / total_num)
+                
+                else: 
+                    accuracy = total_correct / total_num
+                    print('Accuray:', accuracy)
 
-                print(f"Video accuracy:, {video_accuracy:.4f}")
-                print(f"Text accuracy:, {text_accuracy:.4f}")
-                print(f"audio accuracy:, {audio_accuracy:.4f}")
-                print(f"Hard voting accuracy:, {hard_vote_accuracy:.4f}")
-                print(f"soft voting accuracy:, {soft_vote_accuracy:.4f}")
+                    epochs_list.append(epoch)
+                    accuracy_list.append(accuracy)
 
-            ##############   Edit ##############
+                    plt.figure(figsize=(10, 6))
+                    plt.plot(epochs_list, accuracy_list, marker='o', linestyle='-', color='b')
+                    plt.title('Accuracy over Epochs')
+                    plt.xlabel('Epoch')
+                    plt.ylabel('Accuracy')
+                    plt.grid(True)
+                    plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
+                    plt.close()
 
-            fig, ax1 = plt.subplots()
-            ax1.plot(epoch, hard_vote_accuracy, color = 'red', alpha = 0.5)
-            ax2 = ax1.twinx()
-            ax2.plot(epoch, soft_vote_accuracy, color = 'blue', alpha = 0.5)
-            ax3 = ax1.twinx()
-            ax3.plot(epoch, audio_accuracy, color='yellow', alpha = 0.5)
-
-            plt.title("Hard voting/soft voting/audio accuracy")
-            plt.show()
-            plt.savefig(save_path + '/' + f'eval_graph.png')
-            plt.close(fig)
+                    print(f"Accuracy graph for epoch {epoch} has been saved.")
