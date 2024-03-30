@@ -57,8 +57,13 @@ def TrainOneBatch(model, opt, data, loss_fun, apex=False, use_cls_token=False):
         loss_t = loss_fun(t, category)
         loss = loss_v + loss_a + loss_t
     else:
-        pred = model(video, audio, nframes, text, category)
-        loss = loss_fun(pred, category)
+        # pred = model(video, audio, nframes, text, category)
+        # loss = loss_fun(pred, category)
+        v, a, t = model(video, audio, nframes, text, category)
+        loss_v = loss_fun(v, category)
+        loss_a = loss_fun(a, category)
+        loss_t = loss_fun(t, category)
+        loss = loss_v + loss_a + loss_t
 
     loss.backward()
     opt.step()
@@ -88,7 +93,7 @@ def calculate_accuracy(predictions, labels):
     accuracy = correct / total
     return accuracy
 
-def EvalUseClsToken(val_batch, net):
+def EvalUseClstoken(val_batch, net):
     video = val_batch['video'].cuda()
     audio = val_batch['audio'].cuda()
     text = val_batch['text'].cuda()
@@ -117,7 +122,7 @@ def EvalUseClsToken(val_batch, net):
 
     return video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct
 
-def EvalEmbedvec(val_batch, net):
+def EvalUseEmbedvec(val_batch, net):
     video = val_batch['video'].cuda()
     audio = val_batch['audio'].cuda()
     text = val_batch['text'].cuda()
@@ -130,6 +135,7 @@ def EvalEmbedvec(val_batch, net):
 
     pred = net(video, audio, nframes, text, category)
     _, pred = torch.max(pred.data, 1)
+    print('pred:', pred)
     correct = (pred == category).sum().item()
     return correct
 
@@ -139,7 +145,8 @@ if __name__ == '__main__':
     parser.add_argument('--we_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/GoogleNews-vectors-negative300.bin', type=str)
     parser.add_argument('--data_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/msrvtt_category_train.pkl', type=str)
     parser.add_argument('--val_data_path', default='C:/Users/heeryung/code/24w_deep_daiv/msrvtt_category_test.pkl', type=str)
-    parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt/trial5_classifer', type=str)
+    parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt', type=str)
+    parser.add_argument('--exp', default='latest', type=str)
     parser.add_argument('--use_softmax', default=False, type=bool) 
     parser.add_argument('--use_cls_token', default=False, type=bool) 
     parser.add_argument('--token_projection', default='projection_net', type=str) 
@@ -151,7 +158,7 @@ if __name__ == '__main__':
     we=None
     we=KeyedVectors.load_word2vec_format(args.we_path, binary=True)
 
-    save_path = args.save_path
+    save_path = args.save_path + '/' + args.exp
     os.makedirs(save_path, exist_ok=True)
 
     dataset = MSRVTT_DataLoader(data_path=args.data_path, we=we)
@@ -160,6 +167,7 @@ if __name__ == '__main__':
     batch_size = args.batch_size
     data_loader = DataLoader(dataset, batch_size=batch_size)
     val_data_loader = DataLoader(val_dataset, batch_size=batch_size)
+    print('# of data:', len(data_loader), '/ # of val data', len(val_data_loader))
 
     loss = torch.nn.CrossEntropyLoss()
     net = EverythingAtOnceModel(args).cuda()
@@ -175,6 +183,8 @@ if __name__ == '__main__':
 
     epochs_list = []
     accuracy_list = []
+    hard_accuracy_list = []
+    soft_accuracy_list = []
 
     net.train()
 
@@ -201,8 +211,7 @@ if __name__ == '__main__':
                     category = val_batch['category'].cuda()
 
                     if args.use_cls_token:
-                        video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct = EvalUseClsToken(val_batch, net)
-
+                        video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct = EvalUseClstoken(val_batch, net)
                         total_soft_vote_correct += soft_vote_correct
                         total_hard_vote_correct += hard_vote_correct
                         total_video_correct += video_correct
@@ -210,32 +219,80 @@ if __name__ == '__main__':
                         total_text_correct += text_correct
                     
                     else:
-                        correct = EvalEmbedvec(val_batch, net)
+                        # correct = EvalUseEmbedvec(val_batch, net)
+                        # total_correct += correct
+                        video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct = EvalUseClstoken(val_batch, net)
+                        total_soft_vote_correct += soft_vote_correct
+                        total_hard_vote_correct += hard_vote_correct
+                        total_video_correct += video_correct
+                        total_audio_correct += audio_correct
+                        total_text_correct += text_correct
+                    
 
                     total_num += category.size(0)
                 
                 # Calculate final accuracies
                 if args.use_cls_token:
+                    hard_vote_accuracy = total_hard_vote_correct / total_num
+                    soft_vote_accuracy = total_soft_vote_correct / total_num
+
                     print("Video accuracy:", total_video_correct / total_num)
                     print("Audio accuracy:", total_audio_correct / total_num)
                     print("Text accuracy:", total_text_correct / total_num)
-                    print("Hard voting accuracy:", total_hard_vote_correct / total_num)
-                    print("Soft voting accuracy:", total_soft_vote_correct / total_num)
-                
-                else: 
-                    accuracy = total_correct / total_num
-                    print('Accuray:', accuracy)
+                    print("Hard voting accuracy:", hard_vote_accuracy)
+                    print("Soft voting accuracy:", soft_vote_accuracy)
 
                     epochs_list.append(epoch)
-                    accuracy_list.append(accuracy)
+                    hard_accuracy_list.append(hard_vote_accuracy)
+                    soft_accuracy_list.append(soft_vote_accuracy)
 
                     plt.figure(figsize=(10, 6))
-                    plt.plot(epochs_list, accuracy_list, marker='o', linestyle='-', color='b')
+                    plt.plot(epochs_list, hard_accuracy_list, marker='o', linestyle='-', color='b', label='Hard Voting')
+                    plt.plot(epochs_list, soft_accuracy_list, marker='o', linestyle='-', color='r', label='Soft Voting')
                     plt.title('Accuracy over Epochs')
                     plt.xlabel('Epoch')
                     plt.ylabel('Accuracy')
                     plt.grid(True)
                     plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
                     plt.close()
+                
+                else: 
+                    # accuracy = total_correct / total_num
+                    # print('Accuray:', accuracy)
 
-                    print(f"Accuracy graph for epoch {epoch} has been saved.")
+                    # epochs_list.append(epoch)
+                    # accuracy_list.append(accuracy)
+
+                    # plt.figure(figsize=(10, 6))
+                    # plt.plot(epochs_list, accuracy_list, marker='o', linestyle='-', color='b')
+                    # plt.title('Accuracy over Epochs')
+                    # plt.xlabel('Epoch')
+                    # plt.ylabel('Accuracy')
+                    # plt.grid(True)
+                    # plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
+                    # plt.close()
+
+                    # print(f"Accuracy graph for epoch {epoch} has been saved.")
+
+                    hard_vote_accuracy = total_hard_vote_correct / total_num
+                    soft_vote_accuracy = total_soft_vote_correct / total_num
+
+                    print("Video accuracy:", total_video_correct / total_num)
+                    print("Audio accuracy:", total_audio_correct / total_num)
+                    print("Text accuracy:", total_text_correct / total_num)
+                    print("Hard voting accuracy:", hard_vote_accuracy)
+                    print("Soft voting accuracy:", soft_vote_accuracy)
+
+                    epochs_list.append(epoch)
+                    hard_accuracy_list.append(hard_vote_accuracy)
+                    soft_accuracy_list.append(soft_vote_accuracy)
+
+                    plt.figure(figsize=(10, 6))
+                    plt.plot(epochs_list, hard_accuracy_list, marker='o', linestyle='-', color='b', label='Hard Voting')
+                    plt.plot(epochs_list, soft_accuracy_list, marker='o', linestyle='-', color='r', label='Soft Voting')
+                    plt.title('Accuracy over Epochs')
+                    plt.xlabel('Epoch')
+                    plt.ylabel('Accuracy')
+                    plt.grid(True)
+                    plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
+                    plt.close()

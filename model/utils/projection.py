@@ -73,7 +73,7 @@ class projection_net(nn.Module):
         # Fuse적용 X
         if not cross_attention:
             self.DAVEnet = load_DAVEnet()
-            self.GU_audio = Gated_Embedding_Unit(320, embed_dim)
+            self.GU_audio = Gated_Embedding_Unit(1024, embed_dim)
             self.GU_video = Gated_Embedding_Unit(video_dim, embed_dim)
             # self.text_pooling_caption = Sentence_Maxpool(we_dim, embed_dim)
             self.GU_text_captions = Gated_Embedding_Unit(we_dim, embed_dim)
@@ -98,6 +98,7 @@ class projection_net(nn.Module):
         #     audio = th.cat(pooled_audio_outputs_list).squeeze(3).squeeze(2)
         # else:
         audio = self.DAVEnet(audio_input) # [16, 1024, 320]
+        audio = audio.permute(0,2,1)
         # audio = audio_input.view(audio_input.shape[0], -1)
         # audio = audio.mean(dim=2) # this averages features from 0 padding too # [16,40,5120] -> [16,5120]
         # print('audio shape:', audio.shape)
