@@ -1,6 +1,6 @@
-## Training 
+# Training 
 ```
-python train.py --we_path your/we/path --data_path your/data/path --token_projection projection_net --use_softmax 
+python train.py --use_softmax True --use_cls_token False --exp 
 ```
 
 # Dataset 
