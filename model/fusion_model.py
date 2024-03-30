@@ -89,7 +89,11 @@ class EverythingAtOnceModel(nn.Module):
 
         self.init_weights()
 
+        # classifier
         self.classifier = Classifier(num_classes=self.num_classes, embed_dim=self.embed_dim)
+        self.mlp_v = nn.Linear(embed_dim, self.num_classes)
+        self.mlp_a = nn.Linear(embed_dim, self.num_classes)
+        self.mlp_t = nn.Linear(embed_dim, self.num_classes)
 
     def init_weights(self):
         for weights in [self.video_pos_embed, self.audio_pos_embed, self.text_pos_embed]:
@@ -165,13 +169,13 @@ class EverythingAtOnceModel(nn.Module):
             video_raw_embed = self.extract_video_tokens(video) # [16, 4096]
             audio_raw_embed = self.extract_audio_tokens(audio, nframes) # [16, 80, 4096]
 
-        va = self.fusion(key=video_raw_embed, query=audio_raw_embed) # [16, 1024, 1024]
+        va = self.fusion(key=video_raw_embed, query=audio_raw_embed) # [16, 1024, 1024] [16, 320, 1024]
         vt = self.fusion(key=video_raw_embed, query=text_raw_embed) # [16, 30, 1024]
 
         at = self.fusion(key=audio_raw_embed, query=text_raw_embed) # [16, 30, 1024]
         av = self.fusion(key=audio_raw_embed, query=video_raw_embed) # [16, 1, 1024]
 
-        ta = self.fusion(key=text_raw_embed, query=audio_raw_embed) # [16, 1024, 1024]
+        ta = self.fusion(key=text_raw_embed, query=audio_raw_embed) # [16, 1024, 1024] [16, 320, 1024]
         tv = self.fusion(key=text_raw_embed, query=video_raw_embed) # [16, 1, 1024]
 
         if self.use_cls_token:
@@ -180,12 +184,18 @@ class EverythingAtOnceModel(nn.Module):
             t = (ta + tv) / 2
             return v, a, t
         else:
-            v = torch.concat((va,vt), dim=1) # [16, 1054, 1024]
+            v = torch.concat((va,vt), dim=1) # [16, 1054, 1024] [16, 350, 1024]
             a = torch.concat((at,av), dim=1) # [16, 31, 1024]
-            t = torch.concat((ta,tv), dim=1) # [16, 1025, 1024]
+            t = torch.concat((ta,tv), dim=1) # [16, 1025, 1024] [16, 321, 1024]
+            # output = self.classifier(v, a, t)
+            # return output
+
             # print('va',va.shape,'vt',vt.shape,'v',v.shape)
             # print('at',at.shape,'av',av.shape,'a',a.shape)
             # print('ta',ta.shape,'tv',tv.shape,'t',t.shape)
-            output = self.classifier(v, a, t)
-            return output
+            # exit()
+            output_v = self.mlp_v(v.mean(dim=1))
+            output_a = self.mlp_a(a.mean(dim=1)) # .view(a.size(0), -1)
+            output_t = self.mlp_t(t.mean(dim=1))
+            return output_v, output_a, output_t
 
