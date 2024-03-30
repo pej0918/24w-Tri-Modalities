@@ -147,7 +147,7 @@ if __name__ == '__main__':
     parser.add_argument('--val_data_path', default='C:/Users/heeryung/code/24w_deep_daiv/msrvtt_category_test.pkl', type=str)
     parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt', type=str)
     parser.add_argument('--exp', default='latest', type=str)
-    parser.add_argument('--use_softmax', default=False, type=bool) 
+    parser.add_argument('--use_softmax', default=True, type=bool) 
     parser.add_argument('--use_cls_token', default=False, type=bool) 
     parser.add_argument('--token_projection', default='projection_net', type=str) 
     parser.add_argument('--num_classes', default=20, type=int) 
@@ -169,6 +169,9 @@ if __name__ == '__main__':
     val_data_loader = DataLoader(val_dataset, batch_size=batch_size)
     print('# of data:', len(data_loader), '/ # of val data', len(val_data_loader))
 
+    use_cls_token = args.use_cls_token
+    print('use_cls_token:', use_cls_token)
+
     loss = torch.nn.CrossEntropyLoss()
     net = EverythingAtOnceModel(args).cuda()
     optimizer = torch.optim.Adam(net.parameters(), lr =0.001)
@@ -186,16 +189,18 @@ if __name__ == '__main__':
     hard_accuracy_list = []
     soft_accuracy_list = []
 
-    net.train()
 
     for epoch in range(0,1001):
-        running_loss = 0.0
+        net.train()
 
-        for i_batch, sample_batch in enumerate(data_loader):
-            batch_loss = TrainOneBatch(net, optimizer, sample_batch, loss, use_cls_token=args.use_cls_token)
+        running_loss = 0.0
+        print('Epoch: {}'.format(epoch))
+
+        for sample_batch in data_loader:
+            batch_loss = TrainOneBatch(net, optimizer, sample_batch, loss, use_cls_token=use_cls_token)
             running_loss += batch_loss
 
-        print('Epoch: {} / Total loss: {}'.format(epoch, running_loss / len(data_loader)))
+        print('Total loss: {}'.format(running_loss / len(data_loader)))
 
         if epoch % 10 == 0:
             # Save checkpoint
