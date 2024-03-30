@@ -65,7 +65,7 @@ class FusionTransformer(nn.Module):
         if self.cls_token is None:
             offset = 0
         else:
-            cls_token = self.cls_token.expand(token_k.shape[0], -1, -1) #[32,1,1024]
+            cls_token = self.cls_token.expand(token_k.shape[0], -1, -1)
             # print('shape of cls_token:', cls_token.shape)
             token_k = torch.cat((cls_token, token_k), dim=1)
 
@@ -79,12 +79,12 @@ class FusionTransformer(nn.Module):
         # FusionBlock (cross attnetion)
         for block in self.blocks:
             tokens = block(token_k, token_q)
-
+        
         if self.cls_token is None:
             output = tokens
         else:
             output = tokens[:,0,:].squeeze(1)
-            # output = self.mlp_head(output)
+            output = self.mlp_head(output)
 
         return output
         

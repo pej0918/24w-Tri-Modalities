@@ -25,9 +25,9 @@ class EverythingAtOnceModel(nn.Module):
                  strategy_audio_pooling='none',
                  davenet_v2=True,
                  individual_projections=True,
-                 use_positional_emb=False,
+                 use_positional_emb=False
                  ):
-        super(EverythingAtOnceModel, self).__init__()
+        super().__init__()
 
         self.embed_dim = embed_dim
         self.use_softmax = args.use_softmax
@@ -47,7 +47,6 @@ class EverythingAtOnceModel(nn.Module):
         self.text_norm_layer = nn.LayerNorm(self.embed_dim, eps=1e-6)
         self.audio_norm_layer = nn.LayerNorm(self.embed_dim, eps=1e-6)
         self.norm_layer = nn.LayerNorm(self.embed_dim, eps=1e-6)
-        self.mlp_head = nn.Linear(self.embed_dim, self.num_classes)
 
         # audio token preprocess
         self.davenet = load_DAVEnet(v2=davenet_v2)
@@ -157,17 +156,6 @@ class EverythingAtOnceModel(nn.Module):
         video = self.norm_layer(video)
         return audio, text, video
 
-    def gate_network(self,X_embedding, Y_embedding): #[32,20] ???
-        device = X_embedding.device
-        gate_layer = torch.nn.Linear(2048,1024).to(device)
-        gate_sigmoid = torch.nn.Sigmoid().to(device)
-        XY_concat = torch.cat((X_embedding,Y_embedding),-1)
-        gated = gate_sigmoid(gate_layer(XY_concat))
-        gate_output = torch.add(gated * X_embedding, (1.- gated) * Y_embedding)
-        return gate_output
-
-
-
     def forward(self, video, audio, nframes, text, category, force_cross_modal=False):
         if self.token_projection == 'projection_net':
             audio_raw_embed, text_raw_embed, video_raw_embed = self.extract_tokens(video, audio, text, nframes)
@@ -188,24 +176,28 @@ class EverythingAtOnceModel(nn.Module):
 
 
         if self.use_cls_token:
-            # v = (va + vt) / 2
-            # a = (at + av) / 2
-            # t = (ta + tv) / 2
-            v = self.gate_network(va, vt)
-            a = self.gate_network(at, av)
-            t = self.gate_network(ta, tv)
-            v = self.mlp_head(v)
-            a = self.mlp_head(a)
-            t = self.mlp_head(t)
+            v = (va + vt) / 2
+            a = (at + av) / 2
+            t = (ta + tv) / 2
             return v, a, t
-
         else:
             v = torch.concat((va,vt), dim=1) # [16, 1054, 1024]
             a = torch.concat((at,av), dim=1) # [16, 31, 1024]
             t = torch.concat((ta,tv), dim=1) # [16, 1025, 1024]
-            # print('va',va.shape,'vt',vt.shape,'v',v.shape)
-            # print('at',at.shape,'av',av.shape,'a',a.shape)
-            # print('ta',ta.shape,'tv',tv.shape,'t',t.shape)
-            output = self.classifier(v, a, t)
-            return output
+
+            # # print('va',va.shape,'vt',vt.shape,'v',v.shape)
+            # # print('at',at.shape,'av',av.shape,'a',a.shape)
+            # # print('ta',ta.shape,'tv',tv.shape,'t',t.shape)
+            # output = self.classifier(v, a, t)
+
+            v = v.mean(dim=1)  # [16, 1054, 1024] -> [16, 1024]
+            a = a.mean(dim=1)  # [16, 31, 1024] -> [16, 1024]
+            t = t.mean(dim=1)  # [16, 1025, 1024] -> [16, 1024]
+
+            # v = (va + vt) / 2
+            # a = (at + av) / 2
+            # t = (ta + tv) / 2
+            return v, a, t
+
+            # return output
 

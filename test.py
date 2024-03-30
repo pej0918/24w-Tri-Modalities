@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from data_loader.msrvtt_dataloader import MSRVTT_DataLoader
 from model.fusion_model import EverythingAtOnceModel
 from gensim.models.keyedvectors import KeyedVectors

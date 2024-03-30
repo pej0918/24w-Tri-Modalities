@@ -1,5 +1,4 @@
-data
-ckpt
+data/
 
 .idea/
 .DS_store

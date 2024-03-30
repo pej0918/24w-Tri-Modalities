@@ -1,4 +1,5 @@
 import argparse
+import collections
 # from sacred import Experiment
 # from neptunecontrib.monitoring.sacred import NeptuneObserver
 
@@ -20,7 +21,15 @@ from model.fusion_model import EverythingAtOnceModel
 from gensim.models.keyedvectors import KeyedVectors
 from torch.utils.data import DataLoader
 
-import torch
+import time
+import torch 
+import torch.nn as nn
+from torch.utils.data import Dataset
+import torch.nn.functional as F
+from functools import partial
+
+import math
+import tqdm
 
 import matplotlib.pyplot as plt
 
@@ -37,7 +46,6 @@ def TrainOneBatch(model, opt, data, loss_fun, apex=False, use_cls_token=False):
     text = text.view(-1, text.shape[-2], text.shape[-1])
     nframes = nframes.view(-1)
     # print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
-
     opt.zero_grad()
     
     #loss 
@@ -48,8 +56,13 @@ def TrainOneBatch(model, opt, data, loss_fun, apex=False, use_cls_token=False):
         loss_t = loss_fun(t, category)
         loss = loss_v + loss_a + loss_t
     else:
-        pred = model(video, audio, nframes, text, category)
-        loss = loss_fun(pred, category)
+        # pred = model(video, audio, nframes, text, category)
+        # loss = loss_fun(pred, category)
+        v, a, t = model(video, audio, nframes, text, category)
+        loss_v = loss_fun(v, category)
+        loss_a = loss_fun(a, category)
+        loss_t = loss_fun(t, category)
+        loss = loss_v + loss_a + loss_t
 
     loss.backward()
     opt.step()
@@ -124,18 +137,20 @@ def EvalEmbedvec(val_batch, net):
     correct = (pred == category).sum().item()
     return correct
 
+#
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--we_path', default='data/preprocessed_data/GoogleNews-vectors-negative300.bin', type=str)
     parser.add_argument('--data_path', default='data/preprocessed_data/msrvtt_category_train.pkl', type=str)
     parser.add_argument('--val_data_path', default='data/preprocessed_data/msrvtt_category_test.pkl', type=str)
-    parser.add_argument('--save_path', default='./ckpt/gate_networkv1', type=str)
-    parser.add_argument('--use_softmax', default=False, type=bool) 
-    parser.add_argument('--use_cls_token', default=True, type=bool)
-    parser.add_argument('--token_projection', default='projection_net', type=str) 
-    parser.add_argument('--num_classes', default=20, type=int) 
-    parser.add_argument('--batch_size', default=32, type=int)
-    parser.add_argument('--device', default="1", help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('--save_path', default='./ckpt/exp4', type=str)
+    parser.add_argument('--use_softmax', default=True, type=bool)
+    parser.add_argument('--use_cls_token', default=False, type=bool)
+    parser.add_argument('--token_projection', default='projection_net', type=str)
+    parser.add_argument('--num_classes', default=20, type=int)
+    parser.add_argument('--batch_size', default=24, type=int)
+    parser.add_argument('--device', default="3", help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     args = parser.parse_args()
 
     device = torch.device("cuda:" + args.device if torch.cuda.is_available() else "cpu")
@@ -151,8 +166,8 @@ if __name__ == '__main__':
     val_dataset = MSRVTT_DataLoader(data_path=args.val_data_path,we=we)
     
     batch_size = args.batch_size
-    data_loader = DataLoader(dataset, batch_size=batch_size)
-    val_data_loader = DataLoader(val_dataset, batch_size=batch_size)
+    data_loader = DataLoader(dataset, batch_size=batch_size, pin_memory=True)
+    val_data_loader = DataLoader(val_dataset, batch_size=batch_size, pin_memory=True)
 
     loss = torch.nn.CrossEntropyLoss()
     net = EverythingAtOnceModel(args).to(device)
@@ -168,10 +183,12 @@ if __name__ == '__main__':
 
     epochs_list = []
     accuracy_list = []
+    hard_accuracy_list = []
+    soft_accuracy_list = []
 
-    net.train()
 
     for epoch in range(0,1001):
+        net.train()
         running_loss = 0.0
 
         for i_batch, sample_batch in enumerate(data_loader):
@@ -203,7 +220,15 @@ if __name__ == '__main__':
                         total_text_correct += text_correct
                     
                     else:
-                        correct = EvalEmbedvec(val_batch, net)
+                        # correct = EvalUseEmbedvec(val_batch, net)
+                        # total_correct += correct
+                        video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct = EvalUseClsToken(
+                            val_batch, net)
+                        total_soft_vote_correct += soft_vote_correct
+                        total_hard_vote_correct += hard_vote_correct
+                        total_video_correct += video_correct
+                        total_audio_correct += audio_correct
+                        total_text_correct += text_correct
 
                     total_num += category.size(0)
                 
@@ -216,19 +241,41 @@ if __name__ == '__main__':
                     print("Soft voting accuracy:", total_soft_vote_correct / total_num)
                 
                 else: 
-                    accuracy = total_correct / total_num
-                    print('Accuray:', accuracy)
+                    # accuracy = total_correct / total_num
+                    # print('Accuray:', accuracy)
+                    #
+                    # epochs_list.append(epoch)
+                    # accuracy_list.append(accuracy)
+                    #
+                    # plt.figure(figsize=(10, 6))
+                    # plt.plot(epochs_list, accuracy_list, marker='o', linestyle='-', color='b')
+                    # plt.title('Accuracy over Epochs')
+                    # plt.xlabel('Epoch')
+                    # plt.ylabel('Accuracy')
+                    # plt.grid(True)
+                    # plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
+                    # plt.close()
+                    #
+                    # print(f"Accuracy graph for epoch {epoch} has been saved.")
+                    hard_vote_accuracy = total_hard_vote_correct / total_num
+                    soft_vote_accuracy = total_soft_vote_correct / total_num
+
+                    print("Video accuracy:", total_video_correct / total_num)
+                    print("Audio accuracy:", total_audio_correct / total_num)
+                    print("Text accuracy:", total_text_correct / total_num)
+                    print("Hard voting accuracy:", hard_vote_accuracy)
+                    print("Soft voting accuracy:", soft_vote_accuracy)
 
                     epochs_list.append(epoch)
-                    accuracy_list.append(accuracy)
+                    hard_accuracy_list.append(hard_vote_accuracy)
+                    soft_accuracy_list.append(soft_vote_accuracy)
 
                     plt.figure(figsize=(10, 6))
-                    plt.plot(epochs_list, accuracy_list, marker='o', linestyle='-', color='b')
+                    plt.plot(epochs_list, hard_accuracy_list, marker='o', linestyle='-', color='b', label='Hard Voting')
+                    plt.plot(epochs_list, soft_accuracy_list, marker='o', linestyle='-', color='r', label='Soft Voting')
                     plt.title('Accuracy over Epochs')
                     plt.xlabel('Epoch')
                     plt.ylabel('Accuracy')
                     plt.grid(True)
                     plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
                     plt.close()
-
-                    print(f"Accuracy graph for epoch {epoch} has been saved.")
