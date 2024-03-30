@@ -33,12 +33,16 @@ import tqdm
 
 import matplotlib.pyplot as plt
 
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
+
 def TrainOneBatch(model, opt, data, loss_fun, apex=False, use_cls_token=False):
-    video = data['video'].cuda()
-    audio = data['audio'].cuda()
-    text = data['text'].cuda()
-    nframes = data['nframes'].cuda()
-    category = data['category'].cuda()
+    video = data['video'].to(device)
+    audio = data['audio'].to(device)
+    text = data['text'].to(device)
+    nframes = data['nframes'].to(device)
+    category = data['category'].to(device)
     # print('video:', video.shape, 'audio:', audio.shape, 'text:', text.shape)
 
     video = video.view(-1, video.shape[-1])
@@ -94,11 +98,11 @@ def calculate_accuracy(predictions, labels):
     return accuracy
 
 def EvalUseClstoken(val_batch, net):
-    video = val_batch['video'].cuda()
-    audio = val_batch['audio'].cuda()
-    text = val_batch['text'].cuda()
-    nframes = val_batch['nframes'].cuda()
-    category = val_batch['category'].cuda()
+    video = val_batch['video'].to(device)
+    audio = val_batch['audio'].to(device)
+    text = val_batch['text'].to(device)
+    nframes = val_batch['nframes'].to(device)
+    category = val_batch['category'].to(device)
 
     video = video.view(-1, video.shape[-1])
     audio = audio.view(-1, audio.shape[-2], audio.shape[-1])
@@ -123,11 +127,11 @@ def EvalUseClstoken(val_batch, net):
     return video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct
 
 def EvalUseEmbedvec(val_batch, net):
-    video = val_batch['video'].cuda()
-    audio = val_batch['audio'].cuda()
-    text = val_batch['text'].cuda()
-    nframes = val_batch['nframes'].cuda()
-    category = val_batch['category'].cuda()
+    video = val_batch['video'].to(device)
+    audio = val_batch['audio'].to(device)
+    text = val_batch['text'].to(device)
+    nframes = val_batch['nframes'].to(device)
+    category = val_batch['category'].to(device)
 
     video = video.view(-1, video.shape[-1])
     audio = audio.view(-1, audio.shape[-2], audio.shape[-1])
@@ -142,38 +146,49 @@ def EvalUseEmbedvec(val_batch, net):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--we_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/GoogleNews-vectors-negative300.bin', type=str)
-    parser.add_argument('--data_path', default='C:/Users/heeryung/code/24w-Tri-Modalities/data/msrvtt_category_train.pkl', type=str)
-    parser.add_argument('--val_data_path', default='C:/Users/heeryung/code/24w_deep_daiv/msrvtt_category_test.pkl', type=str)
-    parser.add_argument('--save_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt', type=str)
+    parser.add_argument('--we_path', default='/data/heeryung/msr_vtt/GoogleNews-vectors-negative300.bin', type=str)
+    parser.add_argument('--data_path', default='/data/heeryung/msr_vtt/msrvtt_category_train.pkl', type=str)
+    parser.add_argument('--val_data_path', default='/data/heeryung/msr_vtt/msrvtt_category_test.pkl', type=str)
+    parser.add_argument('--save_path', default='/data/heeryung/msr_vtt/ckpt', type=str)
     parser.add_argument('--exp', default='latest', type=str)
     parser.add_argument('--use_softmax', default=True, type=bool) 
     parser.add_argument('--use_cls_token', default=False, type=bool) 
     parser.add_argument('--token_projection', default='projection_net', type=str) 
     parser.add_argument('--num_classes', default=20, type=int) 
     parser.add_argument('--batch_size', default=16, type=int) 
+    parser.add_argument('--local_rank', default=0, type=int, help='Local rank. Necessary for using the torch.distributed.launch utility.')
     args = parser.parse_args()
 
-    # setup data_loader instances
+    # Initialize DDP
+    torch.cuda.set_device(args.local_rank)
+    dist.init_process_group(backend='nccl')
+
     we=None
     we=KeyedVectors.load_word2vec_format(args.we_path, binary=True)
 
     save_path = args.save_path + '/' + args.exp
     os.makedirs(save_path, exist_ok=True)
 
+    # Dataloader
+    batch_size = args.batch_size
     dataset = MSRVTT_DataLoader(data_path=args.data_path, we=we)
     val_dataset = MSRVTT_DataLoader(data_path=args.val_data_path,we=we)
     
-    batch_size = args.batch_size
-    data_loader = DataLoader(dataset, batch_size=batch_size)
-    val_data_loader = DataLoader(val_dataset, batch_size=batch_size)
+    train_sampler = DistributedSampler(dataset)
+    val_sampler = DistributedSampler(val_dataset)
+
+    data_loader = DataLoader(dataset, batch_size=batch_size, sampler=train_sampler)
+    val_data_loader = DataLoader(val_dataset, batch_size=batch_size, sampler=val_sampler)
     print('# of data:', len(data_loader), '/ # of val data', len(val_data_loader))
+
+    device = torch.device(f'cuda:{args.local_rank}')
 
     use_cls_token = args.use_cls_token
     print('use_cls_token:', use_cls_token)
 
     loss = torch.nn.CrossEntropyLoss()
-    net = EverythingAtOnceModel(args).cuda()
+    net = EverythingAtOnceModel(args).to(device)
+    net = DDP(net, device_ids=[args.local_rank], output_device=args.local_rank)
     optimizer = torch.optim.Adam(net.parameters(), lr =0.001)
 
     total_video_correct = 0
@@ -192,6 +207,7 @@ if __name__ == '__main__':
 
     for epoch in range(0,1001):
         net.train()
+        train_sampler.set_epoch(epoch)
 
         running_loss = 0.0
         print('Epoch: {}'.format(epoch))
@@ -213,7 +229,7 @@ if __name__ == '__main__':
             net.eval()
             with torch.no_grad():
                 for val_batch in val_data_loader:
-                    category = val_batch['category'].cuda()
+                    category = val_batch['category'].to(device)
 
                     if args.use_cls_token:
                         video_correct, audio_correct, text_correct, soft_vote_correct, hard_vote_correct = EvalUseClstoken(val_batch, net)
@@ -258,7 +274,7 @@ if __name__ == '__main__':
                     plt.xlabel('Epoch')
                     plt.ylabel('Accuracy')
                     plt.grid(True)
-                    plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
+                    plt.savefig(save_path + '/accuracy_epoch{}.png'.format(epoch))
                     plt.close()
                 
                 else: 
@@ -274,7 +290,7 @@ if __name__ == '__main__':
                     # plt.xlabel('Epoch')
                     # plt.ylabel('Accuracy')
                     # plt.grid(True)
-                    # plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
+                    # plt.savefig(save_path + '/accuracy_epoch{}.png'.format(epoch))
                     # plt.close()
 
                     # print(f"Accuracy graph for epoch {epoch} has been saved.")
@@ -299,5 +315,5 @@ if __name__ == '__main__':
                     plt.xlabel('Epoch')
                     plt.ylabel('Accuracy')
                     plt.grid(True)
-                    plt.savefig(args.save_path + '/accuracy_epoch{}.png'.format(epoch))
+                    plt.savefig(save_path + '/accuracy_epoch{}.png'.format(epoch))
                     plt.close()
