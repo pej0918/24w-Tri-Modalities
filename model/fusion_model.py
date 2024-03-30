@@ -197,6 +197,5 @@ class EverythingAtOnceModel(nn.Module):
             output_v = self.mlp_v(v.mean(dim=1))
             output_a = self.mlp_a(a.mean(dim=1)) # .view(a.size(0), -1)
             output_t = self.mlp_t(t.mean(dim=1))
-            
             return output_v, output_a, output_t
 
