@@ -11,9 +11,9 @@ class FusionTransformer(nn.Module):
     def __init__(self, embed_dim=1024, depth=1, num_heads=64, mlp_ratio=1, qkv_bias=True,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0., norm_layer=None,
                  act_layer=None,
-                 use_cls_token=False,
+                 use_cls_token=True,
                  num_classes=20,
-                 use_softmax=True
+                 use_softmax=False
                  ):
         super().__init__()
 
