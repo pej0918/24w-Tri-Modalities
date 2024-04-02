@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch as th
 import torch.nn.functional as F
 
+
 from model.utils.davenet import load_DAVEnet
 
 
@@ -73,7 +74,7 @@ class projection_net(nn.Module):
         # Fuse적용 X
         if not cross_attention:
             self.DAVEnet = load_DAVEnet()
-            self.GU_audio = Gated_Embedding_Unit(1024, embed_dim)
+            self.GU_audio = Gated_Embedding_Unit(4096, embed_dim)
             self.GU_video = Gated_Embedding_Unit(video_dim, embed_dim)
             # self.text_pooling_caption = Sentence_Maxpool(we_dim, embed_dim)
             self.GU_text_captions = Gated_Embedding_Unit(we_dim, embed_dim)
@@ -120,3 +121,4 @@ class projection_net(nn.Module):
             audio = self.GU_audio(audio) # [16,5120] -> [16,4096]  [16, 1024, 320] -> 
             video = self.GU_video(video) # [16,40*4096] -> [16,4096]
             return audio, text, video
+
