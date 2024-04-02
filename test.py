@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--we_path', default='./data/GoogleNews-vectors-negative300.bin', type=str)
-parser.add_argument('--data_path', default='C:/Users/heeryung/code/24w_deep_daiv/msrvtt_category_test.pkl', type=str)
-parser.add_argument('--checkpoint_path', default='C:/Users/heeryung/code/24w_deep_daiv/ckpt/trial5_classifier/epoch200.pth', type=str)
+parser.add_argument('--we_path', default='GoogleNews-vectors-negative300.bin', type=str)
+parser.add_argument('--data_path', default='msrvtt_category_test.pkl', type=str)
+parser.add_argument('--checkpoint_path', default='epoch210.pth', type=str)
 parser.add_argument('--token_projection', default='projection_net', type=str) 
 parser.add_argument('--use_softmax', default=False, type=bool) 
 parser.add_argument('--use_cls_token', default=False, type=bool) 
