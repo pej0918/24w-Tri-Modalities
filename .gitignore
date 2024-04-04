@@ -1,5 +1,6 @@
 data/
 ckpt/
+*.pth
 
 .idea/
 .DS_store
