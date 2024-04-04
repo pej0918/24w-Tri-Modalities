@@ -11,6 +11,7 @@ from model.utils.davenet import load_DAVEnet
 from model.utils.projection import projection_net
 from model.utils.classifier import Classifier
 
+
 class EverythingAtOnceModel(nn.Module):
     def __init__(self,
                  args,
@@ -82,10 +83,10 @@ class EverythingAtOnceModel(nn.Module):
         
 
         self.init_weights()
+
         self.classifier1 = Classifier(latent_dim=2048)
         self.classifier2 = Classifier(latent_dim=2048)
         self.classifier3 = Classifier(latent_dim=2048)
-
 
     def init_weights(self):
         for weights in [self.video_pos_embed, self.audio_pos_embed, self.text_pos_embed]:
@@ -105,10 +106,9 @@ class EverythingAtOnceModel(nn.Module):
     def extract_video_tokens(self, video):
         x = self.video_token_proj(video)
         x = self.video_norm_layer(x)
-
-
         return x
 
+      
     def extract_audio_tokens(self, audio, audio_STFT_nframes):
         audio = self.davenet(audio)
         audio = audio.permute(0, 2, 1)
@@ -126,7 +126,7 @@ class EverythingAtOnceModel(nn.Module):
     
     def extract_tokens(self, video, audio, text, nframes):
         audio, text, video = self.token_proj(video, audio, nframes, text)
-
+        
         return audio, text, video
 
     def forward(self, video, audio, nframes, text, category, force_cross_modal=False):
@@ -138,10 +138,12 @@ class EverythingAtOnceModel(nn.Module):
             video_raw_embed = self.extract_video_tokens(video) # [16, 4096]
             audio_raw_embed = self.extract_audio_tokens(audio, nframes) # [16, 80, 4096]
 
+            
         ### Visual - Audio
         va = self.fusion(key=video_raw_embed,
                             query=audio_raw_embed)
         av = self.fusion(key=audio_raw_embed, query=video_raw_embed)
+
         va = va.mean(dim=1)
         av = av.mean(dim=1)
         vav = torch.cat((va,av), dim=1).view(va.size(0),-1)
@@ -150,7 +152,6 @@ class EverythingAtOnceModel(nn.Module):
         ##Audio - Text
         at = self.fusion(key=audio_raw_embed,
                             query=text_raw_embed)
-
         ta = self.fusion(key=text_raw_embed,
                             query=audio_raw_embed)
 
@@ -174,5 +175,3 @@ class EverythingAtOnceModel(nn.Module):
 
 
         return vav, ata, tvt
-
-

@@ -2,12 +2,12 @@ import argparse
 import collections
 import os
 
-
 from dataset.msrvtt_dataloader import MSRVTT_DataLoader
 from model.fusion_model import EverythingAtOnceModel
 from gensim.models.keyedvectors import KeyedVectors
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR
+
 import time
 import torch 
 import torch.nn as nn
@@ -24,6 +24,7 @@ def calculate_f1_score(predictions, labels):
     f1 = f1_score(labels.cpu(), predictions.cpu(), average='weighted')
     return f1
 
+  
 def TrainOneBatch(model, opt, data, loss_fun, use_cls_token=False):
     video = data['video'].to(device)
     audio = data['audio'].to(device)
@@ -69,6 +70,10 @@ def get_hard_voting(va_preds, at_preds, tv_preds):
     return hard_vote
 
 def get_predictions(va, at, tv):
+    #va = torch.softmax(va, dim=1)
+    #at = torch.softmax(at, dim=1)
+    #tv = torch.softmax(tv, dim=1)
+
     _, va_preds = torch.max(va, 1)
     _, at_preds = torch.max(at, 1)
     _, tv_preds = torch.max(tv, 1)
@@ -165,9 +170,10 @@ if __name__ == '__main__':
 
     loss = torch.nn.CrossEntropyLoss()
     net = EverythingAtOnceModel(args).to(device)
-    optimizer = torch.optim.AdamW(net.parameters(), lr =0.001)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=0.001)
     scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
     epoch = args.epoch
+
 
     total_video_correct = 0
     total_audio_correct = 0
@@ -241,7 +247,7 @@ if __name__ == '__main__':
                     print("Soft voting accuracy:", total_soft_vote_correct / total_num)
                 
                 else: 
-
+                  
                     hard_vote_accuracy = total_hard_vote_correct / total_num
                     soft_vote_accuracy = total_soft_vote_correct / total_num
                     f1_accuracy = total_f1 / total_num
@@ -249,7 +255,6 @@ if __name__ == '__main__':
                     print("Video accuracy:", total_video_correct / total_num)
                     print("Audio accuracy:", total_audio_correct / total_num)
                     print("Text accuracy:", total_text_correct / total_num)
-                    print("Soft voting accuracy:", soft_vote_accuracy)
 
                     epochs_list.append(epoch)
                     hard_accuracy_list.append(hard_vote_accuracy)
