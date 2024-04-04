@@ -11,6 +11,9 @@ from model.utils.davenet import load_DAVEnet
 from model.utils.projection import projection_net
 from model.utils.classifier import Classifier
 
+
+# from model.utils.CommonEncoder import CommonEncoder
+
 class EverythingAtOnceModel(nn.Module):
     def __init__(self,
                  args,
@@ -34,7 +37,8 @@ class EverythingAtOnceModel(nn.Module):
         self.use_cls_token = args.use_cls_token
         self.num_classes = args.num_classes
 
-        self.fusion = FusionTransformer(embed_dim=self.embed_dim, use_softmax=self.use_softmax, use_cls_token=self.use_cls_token, num_classes = self.num_classes)
+        self.fusion = FusionTransformer(embed_dim=self.embed_dim, use_softmax=self.use_softmax,
+                                        use_cls_token=self.use_cls_token, num_classes=self.num_classes)
 
         self.args = args
         self.token_projection = args.token_projection
@@ -79,7 +83,7 @@ class EverythingAtOnceModel(nn.Module):
             self.video_token_proj = get_projection(video_embed_dim, self.embed_dim, self.token_projection)
             self.text_token_proj = get_projection(text_embed_dim, self.embed_dim, self.token_projection)
             self.audio_token_proj = get_projection(audio_embed_dim, self.embed_dim, self.token_projection)
-        
+
         # if not self.individual_projections:
         #     self.proj = get_projection(embed_dim, projection_dim, projection)
         # else:
@@ -88,8 +92,10 @@ class EverythingAtOnceModel(nn.Module):
         #     self.audio_proj = get_projection(embed_dim, projection_dim, projection)
 
         self.init_weights()
-
-        self.classifier = Classifier(num_classes=self.num_classes, embed_dim=self.embed_dim)
+        # self.commonencoder=CommonEncoder(common_dim=self.embed_dim, latent_dim=512)
+        self.classifier1 = Classifier(latent_dim=self.embed_dim, num_classes=self.num_classes)
+        self.classifier2 = Classifier(latent_dim=self.embed_dim, num_classes=self.num_classes)
+        self.classifier3 = Classifier(latent_dim=self.embed_dim, num_classes=self.num_classes)
 
     def init_weights(self):
         for weights in [self.video_pos_embed, self.audio_pos_embed, self.text_pos_embed]:
@@ -119,41 +125,21 @@ class EverythingAtOnceModel(nn.Module):
         audio = self.davenet(audio)
         audio = audio.permute(0, 2, 1)
 
-        # coef = int(np.ceil(attention_mask.shape[1] / audio.shape[1]))
-        # attention_mask = torch.nn.functional.max_pool1d(attention_mask.unsqueeze(0), kernel_size=coef).squeeze(0)
-        # audio_STFT_nframes = (audio_STFT_nframes / coef).int()
-
-        # if (self.audio_max_tokens is not None) and (audio.shape[1] > self.audio_max_tokens):
-        #     new_audio, new_audio_mask = [], []
-        #     for i in range(len(audio)):
-        #         cur_audio, cur_audio_mask = create_audio_tokens(
-        #             audio[i], attention_mask[i], audio_STFT_nframes[i], self.audio_max_tokens, strategy=self.strategy_audio_pooling)
-        #         new_audio.append(cur_audio)
-        #         new_audio_mask.append(cur_audio_mask)
-        # new_audio = [a for a in range(len(audio))]
-        # audio = torch.stack(new_audio, dim=0)
-        # # attention_mask = torch.stack(new_audio_mask, dim=0)
-
         audio = self.audio_token_proj(audio)
         audio = self.audio_norm_layer(audio)
-
-        # audio, attention_mask, nonempty_input_mask = self._check_and_fix_if_input_empty(audio, attention_mask)
-        # special_token_mask = attention_mask == 0
         return audio
-    
+
     def extract_text_tokens(self, text):
         x = self.text_token_proj(text)
         x = self.text_norm_layer(x)
 
-        # x, attention_mask, nonempty_input_mask = self._check_and_fix_if_input_empty(x, attention_mask)
-        # special_token_mask = attention_mask == 0
         return x
-    
+
     def extract_tokens(self, video, audio, text, nframes):
         audio, text, video = self.token_proj(video, audio, nframes, text)
-        audio = self.norm_layer(audio)
-        text = self.norm_layer(text)
-        video = self.norm_layer(video)
+        # audio = self.norm_layer(audio)
+        # text = self.norm_layer(text)
+        # video = self.norm_layer(video)
         return audio, text, video
 
     def forward(self, video, audio, nframes, text, category, force_cross_modal=False):
@@ -185,19 +171,11 @@ class EverythingAtOnceModel(nn.Module):
             a = torch.concat((at,av), dim=1) # [16, 31, 1024]
             t = torch.concat((ta,tv), dim=1) # [16, 1025, 1024]
 
-            # # print('va',va.shape,'vt',vt.shape,'v',v.shape)
-            # # print('at',at.shape,'av',av.shape,'a',a.shape)
-            # # print('ta',ta.shape,'tv',tv.shape,'t',t.shape)
-            # output = self.classifier(v, a, t)
-
-            v = v.mean(dim=1)  # [16, 1054, 1024] -> [16, 1024]
-            a = a.mean(dim=1)  # [16, 31, 1024] -> [16, 1024]
-            t = t.mean(dim=1)  # [16, 1025, 1024] -> [16, 1024]
+            v = self.classifier1(v.mean(dim=1))
+            a = self.classifier1(a.mean(dim=1))
+            t = self.classifier1(t.mean(dim=1))
 
             # v = (va + vt) / 2
             # a = (at + av) / 2
             # t = (ta + tv) / 2
             return v, a, t
-
-            # return output
-
