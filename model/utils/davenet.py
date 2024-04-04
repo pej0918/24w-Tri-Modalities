@@ -100,7 +100,7 @@ class ResDavenet(nn.Module):
         return x
 
 
-def load_DAVEnet(v2=False):
+def load_DAVEnet(v2=True):
     if v2:
         audio_model = ResDavenet(feat_dim=40, layers=[2,2,1,1,1,1], convsize=9,
                                  layer_widths=[128,128,256,512,1024,2048,4096])
