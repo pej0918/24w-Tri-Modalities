@@ -88,6 +88,7 @@ class ScaleDotProductAttention(nn.Module):
     def forward(self, q, k, v, e=1e-12):
         # input size: [batch_size, head, length, d_tensor]
         batch_size, head, length, d_tensor = k.size()
+
         k_t = k.transpose(2,3)
         score = (q @ k_t) / math.sqrt(d_tensor)  # scaled dot product
         if self.use_softmax:
@@ -129,6 +130,30 @@ class MultiHeadCrossAttention(nn.Module):
         batch_size, head, length, d_tensor = tensor.size()
         tensor = tensor.transpose(1,2).contiguous().view(batch_size, length, self.d_model)
         return tensor
+
+# class FusionAttention(Attention):
+#     """
+#     Adopted from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
+#     Copyright 2020, Ross Wightman
+#     """
+#     def forward(self, x, y, attention_mask=None):
+#         B, N, C = x.shape
+#         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+#         q, k, v = qkv[0], qkv[1], qkv[2]
+
+#         attn = (q @ k.transpose(-2, -1)) * self.scale
+
+#         if attention_mask is not None:
+#             zero_attention_mask = (attention_mask == 0).view(B, 1, 1, N).expand_as(attn)  # (bs, n_heads, q_length, k_length)
+#             attn.masked_fill_(zero_attention_mask, -float("inf"))  # (bs, n_heads, q_length, k_length)
+
+#         attn = attn.softmax(dim=-1)
+#         attn = self.attn_drop(attn)
+
+#         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+#         x = self.proj(x)
+#         x = self.proj_drop(x)
+#         return x
 
 
 def get_projection(input_dim, output_dim, projection_type):

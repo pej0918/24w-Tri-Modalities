@@ -1,6 +1,9 @@
-## Training 
+# Training 
 ```
-python train.py --we_path your/we/path --data_path your/data/path --token_projection projection_net --use_softmax 
+python train.py --use_softmax True --use_cls_token False --exp 
+```
+```
+CUDA_VISIBLE_DEVICES='2,3' python -m torch.distributed.launch --nproc_per_node=2 train.py
 ```
 
 # Dataset 

@@ -32,12 +32,11 @@ class FusionTransformer(nn.Module):
         self.blocks = nn.Sequential(*[
             FusionBlock(
                 dim=embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio, qkv_bias=qkv_bias, drop=drop_rate,
-                attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer, act_layer=act_layer,
-                use_softmax=use_softmax
+                attn_drop=attn_drop_rate, drop_path=dpr[i], norm_layer=norm_layer, act_layer=act_layer, use_softmax=use_softmax
             )
             for i in range(depth)])
 
-        self.norm = norm_layer(embed_dim)  # TODO: not needed, remove?
+        self.norm = norm_layer(embed_dim) # TODO: not needed, remove?
         self.init_weights()
 
         self.mlp_head = nn.Linear(embed_dim, num_classes)
@@ -80,14 +79,71 @@ class FusionTransformer(nn.Module):
         # FusionBlock (cross attnetion)
         for block in self.blocks:
             tokens = block(token_k, token_q)
-
+        
         if self.cls_token is None:
             output = tokens
         else:
-            output = tokens[:, 0, :].squeeze(1)
+            output = tokens[:,0,:].squeeze(1)
             output = self.mlp_head(output)
 
         return output
+        
+        # print('output:', tokens.shape)
+
+        # output = collections.OrderedDict()
+
+        # def _get_average(tokens, attention_mask):
+        #     attention_mask = attention_mask.unsqueeze(2).expand_as(tokens)
+        #     return (tokens * attention_mask).sum(1) / attention_mask.sum(1)
+        
+        
+
+
+        # if text is not None:
+        #     n_tokens = text['all_tokens'].size(1)
+        #     attention_mask = text['attention_mask']
+        #     all_tokens = tokens[:, offset:offset + n_tokens]
+
+        #     offset += n_tokens
+        #     output['text'] = {
+        #         "all_tokens": all_tokens,
+        #         "attention_mask": attention_mask,
+        #     }
+
+        # if video is not None:
+        #     n_tokens = video['all_tokens'].size(1)
+        #     attention_mask = video['attention_mask']
+        #     all_tokens = tokens[:, offset:offset + n_tokens]
+
+        #     offset += n_tokens
+        #     output['video'] = {
+        #         "all_tokens": all_tokens,
+        #         "attention_mask": attention_mask,
+        #     }
+
+        # if audio is not None:
+        #     n_tokens = audio['all_tokens'].size(1)
+        #     attention_mask = audio['attention_mask']
+        #     all_tokens = tokens[:, offset: offset + n_tokens]
+
+        #     offset += n_tokens
+        #     output['audio'] = {
+        #         "all_tokens": all_tokens,
+        #         "attention_mask": attention_mask,
+        #     }
+
+
+        # if self.cls_token is None:
+        #     for key, value in output.items():
+        #         output[key]['embed'] = _get_average(value["all_tokens"], value['attention_mask'])
+        # else:
+        #     modalities = list(output.keys())
+        #     modalities = '_'.join(modalities)
+        #     if modalities not in output:
+        #         output[modalities] = {}
+        #     output[modalities]['embed'] = tokens[:, 0]
+
+        
 
 
 def _init_vit_weights(module: nn.Module, name: str = '', head_bias: float = 0., jax_impl: bool = False):
