@@ -10,7 +10,7 @@ from model.utils.fusion_transformer import FusionTransformer
 from model.utils.davenet import load_DAVEnet
 from model.utils.projection import projection_net
 from model.utils.classifier import Classifier
-
+from model.utils.CommonEncoder import CommonEncoder
 
 class EverythingAtOnceModel(nn.Module):
     def __init__(self,
@@ -84,6 +84,7 @@ class EverythingAtOnceModel(nn.Module):
 
         self.init_weights()
 
+        self.commonencoder = CommonEncoder(common_dim=self.embed_dim, latent_dim=512)
         self.classifier1 = Classifier(latent_dim=2048)
         self.classifier2 = Classifier(latent_dim=2048)
         self.classifier3 = Classifier(latent_dim=2048)
