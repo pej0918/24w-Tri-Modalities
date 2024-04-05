@@ -24,7 +24,7 @@ def calculate_f1_score(predictions, labels):
     f1 = f1_score(labels.cpu(), predictions.cpu(), average='weighted')
     return f1
 
-  
+
 def TrainOneBatch(model, opt, data, loss_fun, use_cls_token=False):
     video = data['video'].to(device)
     audio = data['audio'].to(device)
@@ -247,7 +247,6 @@ if __name__ == '__main__':
                     print("Soft voting accuracy:", total_soft_vote_correct / total_num)
                 
                 else: 
-                  
                     hard_vote_accuracy = total_hard_vote_correct / total_num
                     soft_vote_accuracy = total_soft_vote_correct / total_num
                     f1_accuracy = total_f1 / total_num
