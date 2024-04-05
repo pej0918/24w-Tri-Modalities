@@ -88,6 +88,7 @@ class EverythingAtOnceModel(nn.Module):
         self.classifier1 = Classifier(latent_dim=2048)
         self.classifier2 = Classifier(latent_dim=2048)
         self.classifier3 = Classifier(latent_dim=2048)
+        self.commonencoder=CommonEncoder(common_dim=self.embed_dim, latent_dim=512)
 
     def init_weights(self):
         for weights in [self.video_pos_embed, self.audio_pos_embed, self.text_pos_embed]:
