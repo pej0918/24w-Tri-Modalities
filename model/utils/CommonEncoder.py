@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 
 class CommonEncoder(nn.Module):
-
     def __init__(self, common_dim, latent_dim):
         super(CommonEncoder, self).__init__()
         self.common_dim = common_dim
