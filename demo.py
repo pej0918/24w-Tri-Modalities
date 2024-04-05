@@ -133,12 +133,13 @@ class YMCA:
         text_f = text_f.view(-1, text_f.shape[-2], text_f.shape[-1])
 
         va, at, tv = self.net(video_f, audio_f, nframes, text_f, category)
+        va = torch.softmax(va, dim=1)
+        at = torch.softmax(at, dim=1)
+        tv = torch.softmax(tv, dim=1)
         soft_vote = (va + at + tv) / 3    #각 클래스별 확률 값
-        print(f"** Soft Vote: {len(soft_vote)}")
         _, pred_category = torch.max(soft_vote, 1)   #예측한 class 값
-        accuracy = (pred_category == category).sum().item()
-        print(f"** Accuracy: {accuracy}")
-
+        accuracy = (pred_category  == category).sum().item()
+        soft_vote.squeeze_(0)
         return dict(zip(CATEGORIES, map(float, soft_vote)))
 
     def get_example_list(self):
