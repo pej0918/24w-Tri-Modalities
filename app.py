@@ -7,18 +7,10 @@ import json
 
 from demo import YMCA
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-with open(Path(current_dir, "source/test_caption.json")) as f: 
-    captions = json.load(f)
-
-EXAMPLE_LIST = [
-    [str(Path(current_dir, "source/video7061.mp4")), [captions["caption_7061"][0]]],
-    [str(Path(current_dir, "source/video7118.mp4")), [captions["caption_7118"][0]]]
-]
-
 if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     servicer = YMCA(device)
+    EXAMPLE_LIST = servicer.get_example_list()
     css = servicer.get_css()
 
     with gr.Blocks(theme='nota-ai/theme', css=css) as demo:
@@ -35,10 +27,10 @@ if __name__ == "__main__":
             with gr.Column():
                 result = gr.Label()
     
-    inputs = [video, text]
+        inputs = [video, text]
 
-    # Click the button for inference
-    inference_outputs = [result]
-    inference_button.click(servicer.inference, inputs=inputs, outputs=inference_outputs)
+        # Click the button for inference
+        inference_outputs = [result]
+        inference_button.click(servicer.inference, inputs=inputs, outputs=inference_outputs)
 
 demo.launch()
