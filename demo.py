@@ -1,3 +1,5 @@
+from argparse import Namespace
+
 import os
 from pathlib import Path
 
@@ -12,6 +14,8 @@ YMCA_ID = "./source/CA6-ATA_MLP3_16batch_200epochs.pth"
 WORD_EMBEDDING_ID = "./source/GoogleNews-vectors-negative300.bin"
 TEST_DATA_PATH = "./source/msrvtt_category_test.pkl"
 
+CATEGORIES = ["music", "people", "gaming", "sports/actions", "news/events/politics", "education", "tv shows", "movie/comedy", "animation", "vehicles/autos", "howto", "travel", "science/technology", "animals/pets", "kids/family", "documentary", "food/drink", "cooking", "beauty/fashion", "advertisement"]
+
 class YMCA:
     def __init__(self, device) -> None:
         self.device = device
@@ -24,14 +28,14 @@ class YMCA:
         self.word_embedding = KeyedVectors.load_word2vec_format(WORD_EMBEDDING_ID, binary=True)
         self.dataset = MSRVTT_DataLoader(data_path=TEST_DATA_PATH, we=self.word_embedding)
 
-        self.args = {
-            'token_projection': self.token_projection,
-            'use_softmax': self.use_softmax,
-            'use_cls_token': self.use_cls_token,
-            'num_classes': self.num_classes
-        }
+        args = Namespace(
+            token_projection=self.token_projection,
+            use_softmax=self.use_softmax,
+            use_cls_token=self.use_cls_token,
+            num_classes=self.num_classes,
+        )
 
-        self.net = EverythingAtOnceModel(args=self.args).to(self.device)
+        self.net = EverythingAtOnceModel(args).to(self.device)
         self.optimizer = torch.optim.Adam(self.net.parameters(), lr =0.001)
         self.net.load_state_dict(self.checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(self.checkpoint['optimizer_state_dict'])
@@ -62,11 +66,12 @@ class YMCA:
         audio_f = audio_f.view(-1, audio_f.shape[-2], audio_f.shape[-1])
         text_f = text_f.view(-1, text_f.shape[-2], text_f.shape[-1])
 
-        pred = self.net(video_f, audio_f, nframes, text_f, category)
-        pred_category = torch.argmax(pred, dim=1)
-        accuracy = (category == pred_category).sum().item() / category.shape[0]
+        va, at, tv = self.net(video_f, audio_f, nframes, text_f, category)
+        soft_vote = (va + at + tv) / 3    #각 클래스별 확률 값
+        _, pred_category = torch.max(soft_vote, 1)   #예측한 class 값
+        accuracy = (pred_category == category).sum().item()
 
-        return pred_category, accuracy
+        return 
 
     def get_example_list(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
