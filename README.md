@@ -1,4 +1,4 @@
-## CAAM (Cross Attention is All for Multimodal)
+# CAAM (Cross Attention is All for Multimodal)
 <br/>
 <p align="center"> <img src="./source/architecture.png" width="700" height="400">
 
@@ -38,7 +38,7 @@ python train.py \
 --device "0"
 
 ```
-## Result
+# Result
 | # Cross Attention | Accuracy |                                                                   
 |-------------------|------------|
 | 3                 | 55.95          |    
@@ -49,7 +49,7 @@ python train.py \
 - 6 cross-attention experiments (experiments with three modalities / keys, values fixed)
 - 6 cross-attention (an experiment in which key values were alternately used in pairs of 2 modalities)
 
-## Evaluation
+# Evaluation
 
 | # Method                                 | # Modality                                        | Acc @1%                                       | Acc @5%                                    |
 |------------------------------------------|---------------------------------------------------|-----------------------------------------------|--------------------------------------------|
