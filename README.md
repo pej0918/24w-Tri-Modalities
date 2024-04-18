@@ -14,11 +14,8 @@ The video's image and audio data, as well as caption text data describing the vi
 - Our dataset: [download](https://drive.google.com/drive/folders/1JsGZKp3ZAoC7w2XaOkZp4TnQ0GwGwUtU?usp=sharing)
 
 MSR-VTT is a large dataset constructed for video captioning tasks, consisting of 10,000 video clips corresponding to 20 categories.
-
 Each video clip is annotated with 20 English sentences.
-
 The dataset used 6513 training sets (train-set) and 497 validation sets (Valuation-set).
-
 **We used the extracted feature value for learning**
 
 # Training 
