@@ -1,4 +1,4 @@
-## CAAM (Cross Attention is All for Multimodal ; CAAM)
+## CAAM (Cross Attention is All for Multimodal)
 <br/>
 <p align="center"> <img src="./source/architecture.png" width="700" height="400">
 
