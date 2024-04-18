@@ -17,10 +17,10 @@ MSR-VTT is a large dataset constructed for video captioning tasks, consisting of
 Each video clip is annotated with 20 English sentences.
 The dataset used 6513 training sets (train-set) and 497 validation sets (Valuation-set).
 
-**We used the extracted feature value for learning**
+**We used the extracted feature value for learning.**
 
 # Training 
-This has trained the model with default settings, RTX 4080 16GB GPU memory occupied, batch size 16, 200 epoch 
+This has trained the model with default settings, RTX 4080 16GB GPU memory occupied, batch size 16, 200 epoch .
 <br/>
  ```bash
 python train.py \
@@ -43,7 +43,7 @@ python train.py \
 |-------------------|------------|
 | 3                 | 55.95          |    
 | 6 (Fix K)         | 54.66          |   
-| **6**                 | **59.11*    |    
+| **6**                 | **59.11**    |    
 
 - 3 cross-attention experiments
 - 6 cross-attention experiments (experiments with three modalities / keys, values fixed)
