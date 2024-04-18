@@ -1,6 +1,6 @@
 ## CAAM (Cross Attention is All for Multimodal ; CAAM)
 <br/>
-<p align="center"> <img src="./source/architecture.png" width="500" height="250">
+<p align="center"> <img src="./source/architecture.png" width="700" height="400">
 
 The video's image and audio data, as well as caption text data describing the video, are passed through an encoder that can represent each data type well to generate a feature value.
 <br/> And we map these feature values to the joint embedding space via a projection head.
@@ -38,7 +38,7 @@ python train.py \
 |-------------------|------------|
 | 3                 | 55.95          |    
 | 6 (Fix K)         | 54.66          |   
-| 6                 | 59.11    |    
+| **6**                 | **59.11*    |    
 
 - 3 cross-attention experiments
 - 6 cross-attention experiments (experiments with three modalities / keys, values fixed)
