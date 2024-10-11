@@ -1,4 +1,4 @@
-# CAAM: Cross-Attention Based Multimodal Learning Framework
+# CAAM: Cross Attention is All for Multimodal
 
 In this research, we propose a comprehensive framework that processes visual, auditory, and textual data from videos by passing them through specialized encoders, each tailored to efficiently extract feature representations from the respective data modalities. These representations are projected into a joint embedding space through a projection head, and a **multimodal fusion transformer** is then applied to compute the **correlation between the modalities**. The resulting final embedding vector is used to perform a **classification task**, determining the video's category from a predefined set of 20 categories.
 
